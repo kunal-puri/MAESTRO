@@ -84,7 +84,7 @@ contains
     logical,         intent(in   ) :: init_mode
     type(ml_layout), intent(inout) :: mla
     type(multifab),  intent(in   ) ::   uold(:)
-    type(multifab),  intent(in   ) ::   sold(:)
+    type(multifab),  intent(inout) ::   sold(:)
     type(multifab),  intent(inout) ::   unew(:)
     type(multifab),  intent(inout) ::   snew(:)
     type(multifab),  intent(inout) ::  gpi(:)
@@ -256,6 +256,10 @@ contains
 
     if (barrier_timers) call parallel_barrier()
     misc_time = misc_time + parallel_wtime() - misc_time_start
+
+    do n = 1, nlevs
+       call setval(sold(n), ONE, all=.true.)
+    end do
     
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !! STEP 1 -- react the full state and then base state through dt/2
@@ -363,29 +367,9 @@ contains
     end do
 
     ! MAC projection !
-    if (spherical .eq. 1) then
-       do n=1,nlevs
-          do comp=1,dm
-             call multifab_build_edge(div_coeff_cart_edge(n,comp), mla%la(n),1,1,comp)
-          end do
-       end do
-
-       call make_s0mac(mla,div_coeff_old,div_coeff_cart_edge,dx,foextrap_comp, &
-                       the_bc_tower%bc_tower_array)
-
-       call macproject(mla,umac,macphi,sold,dx,the_bc_tower,macrhs, &
-                       div_coeff_cart_edge=div_coeff_cart_edge)
-
-       do n=1,nlevs
-          do comp=1,dm
-             call destroy(div_coeff_cart_edge(n,comp))
-          end do
-       end do
-    else
-       call cell_to_edge(div_coeff_old,div_coeff_edge)
-       call macproject(mla,umac,macphi,sold,dx,the_bc_tower, &
-                       macrhs,div_coeff_1d=div_coeff_old,div_coeff_1d_edge=div_coeff_edge)
-    end if
+    call cell_to_edge(div_coeff_old,div_coeff_edge)
+    call macproject(mla,umac,macphi,sold,dx,the_bc_tower, &
+                    macrhs,div_coeff_1d=div_coeff_old,div_coeff_1d_edge=div_coeff_edge)
 
     do n=1,nlevs
        call destroy(macrhs(n))
@@ -882,6 +866,12 @@ contains
        print *, '   Misc            : ', misc_time_max   , ' seconds'
        print *, ' '
     endif
+
+    do n = 1, nlevs
+       call setval(snew(n), ONE, all=.true.)
+       call setval(sold(n), ONE, all=.true.)
+    end do
+
   end subroutine advance_timestep
 
 end module advance_timestep_module
