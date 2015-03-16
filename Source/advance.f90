@@ -894,8 +894,8 @@ contains
        end do
     end do
 
-    call advance_premac(uold,sold,umac,gpi,normal,w0,w0mac,w0_force,w0_force_cart, &
-                        rho0_old,grav_cell_old,dx,dt,the_bc_tower%bc_tower_array,mla)
+    !call advance_premac(uold,sold,umac,gpi,normal,w0,w0mac,w0_force,w0_force_cart, &
+    !                    rho0_old,grav_cell_old,dx,dt,the_bc_tower%bc_tower_array,mla)
 
     if (barrier_timers) call parallel_barrier()
     advect_time = advect_time + parallel_wtime() - advect_time_start
@@ -907,8 +907,8 @@ contains
     end do
 
     ! note delta_gamma1_term here is not time-centered
-    call make_macrhs(macrhs,rho0_new,Source_nph,delta_gamma1_term,Sbar,div_coeff_nph,dx, &
-                     gamma1bar,p0_new,delta_p_term,dt,delta_chi,.false.)
+    !call make_macrhs(macrhs,rho0_new,Source_nph,delta_gamma1_term,Sbar,div_coeff_nph,dx, &
+    !                 gamma1bar,p0_new,delta_p_term,dt,delta_chi,.false.)
 
     do n=1,nlevs
        call destroy(delta_gamma1_term(n))
@@ -921,7 +921,7 @@ contains
        call multifab_build(rhohalf(n), mla%la(n), 1, 1)
     end do
 
-    call make_at_halftime(rhohalf,sold,snew,rho_comp,1,the_bc_tower%bc_tower_array,mla)
+    !call make_at_halftime(rhohalf,sold,snew,rho_comp,1,the_bc_tower%bc_tower_array,mla)
 
     ! MAC projection !
     if (spherical .eq. 1) then
@@ -943,9 +943,9 @@ contains
           end do
        end do
     else
-       call cell_to_edge(div_coeff_nph,div_coeff_edge)
-       call macproject(mla,umac,macphi,rhohalf,dx,the_bc_tower,macrhs, &
-                       div_coeff_1d=div_coeff_nph,div_coeff_1d_edge=div_coeff_edge)
+       !call cell_to_edge(div_coeff_nph,div_coeff_edge)
+       !call macproject(mla,umac,macphi,rhohalf,dx,the_bc_tower,macrhs, &
+       !                div_coeff_1d=div_coeff_nph,div_coeff_1d_edge=div_coeff_edge)
     end if
 
 
@@ -955,11 +955,11 @@ contains
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if (.not. init_mode .and. use_particles) then
 
-       call addw0(umac,the_bc_tower%bc_tower_array,mla,w0,w0mac,mult=1.d0)
+       !call addw0(umac,the_bc_tower%bc_tower_array,mla,w0,w0mac,mult=1.d0)
 
-       call move_advect(particles,mla,umac,dx,dt,prob_lo,prob_hi)
+       !call move_advect(particles,mla,umac,dx,dt,prob_lo,prob_hi)
 
-       call addw0(umac,the_bc_tower%bc_tower_array,mla,w0,w0mac,mult=-1.d0)
+       !call addw0(umac,the_bc_tower%bc_tower_array,mla,w0,w0mac,mult=-1.d0)
 
     end if
 
