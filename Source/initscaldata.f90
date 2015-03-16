@@ -35,29 +35,34 @@ contains
 
     ng = nghost(s(1))
 
-    do n=1,nlevs
-       do i = 1, nfabs(s(n))
-          sop => dataptr(s(n),i)
-          lo =  lwb(get_box(s(n),i))
-          hi =  upb(get_box(s(n),i))
+    ! SETTING SCALAR DATA SOLD TO 1
+    do n = 1, nlevs
+       call setval(s(n), 10*ONE, all=.true.)
+    end do
 
-          select case (dm)
-          case (1)
-             call bl_error("ERROR: initscalardata not support in 1d")
-          case (2)
-             call initscalardata_2d(sop(:,:,1,:), lo, hi, ng, dx(n,:), s0_init(n,:,:), &
-                                    p0_init(n,:))
-          case (3)
-             if (spherical .eq. 1) then
-                call initscalardata_3d_sphr(sop(:,:,:,:), lo, hi, ng, dx(n,:), &
-                                            s0_init(1,:,:), p0_init(1,:))
-             else
-                call initscalardata_3d(sop(:,:,:,:), lo, hi, ng, dx(n,:), s0_init(n,:,:), &
-                                       p0_init(n,:))
-             end if
-          end select
-       end do
-    enddo
+    ! do n=1,nlevs
+    !    do i = 1, nfabs(s(n))
+    !       sop => dataptr(s(n),i)
+    !       lo =  lwb(get_box(s(n),i))
+    !       hi =  upb(get_box(s(n),i))
+
+    !       select case (dm)
+    !       case (1)
+    !          call bl_error("ERROR: initscalardata not support in 1d")
+    !       case (2)
+    !          call initscalardata_2d(sop(:,:,1,:), lo, hi, ng, dx(n,:), s0_init(n,:,:), &
+    !                                 p0_init(n,:))
+    !       case (3)
+    !          if (spherical .eq. 1) then
+    !             call initscalardata_3d_sphr(sop(:,:,:,:), lo, hi, ng, dx(n,:), &
+    !                                         s0_init(1,:,:), p0_init(1,:))
+    !          else
+    !             call initscalardata_3d(sop(:,:,:,:), lo, hi, ng, dx(n,:), s0_init(n,:,:), &
+    !                                    p0_init(n,:))
+    !          end if
+    !       end select
+    !    end do
+    ! enddo
 
     ! restrict data and fill all ghost cells
     call ml_restrict_and_fill(nlevs,s,mla%mba%rr,the_bc_level, &

@@ -1618,6 +1618,7 @@ contains
   !============================================================================
   subroutine makeTHfromRhoP(s,p0,the_bc_level,mla,dx)
 
+    use bl_constants_module, only: ONE, ZERO
     use multifab_module
     use ml_layout_module
     use define_bc_module
@@ -1644,25 +1645,29 @@ contains
 
     ng_s = nghost(s(1))
 
-    do n=1,nlevs
-       do i = 1, nfabs(s(n))
-          sop => dataptr(s(n),i)
-          lo =  lwb(get_box(s(n),i))
-          hi =  upb(get_box(s(n),i))
-          select case (dm)
-          case (1)
-             call makeTHfromRhoP_1d(sop(:,1,1,:), ng_s, lo, hi, p0(n,:))
-          case (2)
-             call makeTHfromRhoP_2d(sop(:,:,1,:), ng_s, lo, hi, p0(n,:))
-          case (3)
-             if (spherical .eq. 1) then
-                call makeTHfromRhoP_3d_sphr(sop(:,:,:,:), ng_s, lo, hi, p0(1,:), dx(n,:))
-             else
-                call makeTHfromRhoP_3d(sop(:,:,:,:), ng_s, lo, hi, p0(n,:))
-             end if
-          end select
-       end do
-    enddo
+    do n = 1, nlevs
+       call setval(s(n), ONE, all=.true.)
+    end do
+
+    ! do n=1,nlevs
+    !    do i = 1, nfabs(s(n))
+    !       sop => dataptr(s(n),i)
+    !       lo =  lwb(get_box(s(n),i))
+    !       hi =  upb(get_box(s(n),i))
+    !       select case (dm)
+    !       case (1)
+    !          call makeTHfromRhoP_1d(sop(:,1,1,:), ng_s, lo, hi, p0(n,:))
+    !       case (2)
+    !          call makeTHfromRhoP_2d(sop(:,:,1,:), ng_s, lo, hi, p0(n,:))
+    !       case (3)
+    !          if (spherical .eq. 1) then
+    !             call makeTHfromRhoP_3d_sphr(sop(:,:,:,:), ng_s, lo, hi, p0(1,:), dx(n,:))
+    !          else
+    !             call makeTHfromRhoP_3d(sop(:,:,:,:), ng_s, lo, hi, p0(n,:))
+    !          end if
+    !       end select
+    !    end do
+    ! enddo
 
     ! restrict data and fill all ghost cells
     call ml_restrict_and_fill(nlevs,s,mla%mba%rr,the_bc_level, &
