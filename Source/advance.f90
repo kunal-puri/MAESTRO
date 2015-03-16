@@ -1016,9 +1016,9 @@ contains
        endif
     end do
 
-    call density_advance(mla,2,s1,s2,sedge,sflux,scal_force,umac,w0,w0mac,etarhoflux, &
-                         rho0_old,rho0_new,p0_new,rho0_predicted_edge,dx,dt, &
-                         the_bc_tower%bc_tower_array)
+    !call density_advance(mla,2,s1,s2,sedge,sflux,scal_force,umac,w0,w0mac,etarhoflux, &
+    !                     rho0_old,rho0_new,p0_new,rho0_predicted_edge,dx,dt, &
+    !                     the_bc_tower%bc_tower_array)
 
     ! Now compute the new etarho
     if (evolve_base_state) then
@@ -1102,9 +1102,9 @@ contains
        write(6,*) '            : enthalpy_advance >>>'
     end if
 
-    call enthalpy_advance(mla,2,uold,s1,s2,sedge,sflux,scal_force,thermal1,umac,w0,w0mac, &
-                          rho0_old,rhoh0_old,rho0_new,rhoh0_new,p0_old,p0_new, &
-                          tempbar,psi,dx,dt,the_bc_tower%bc_tower_array)
+    !call enthalpy_advance(mla,2,uold,s1,s2,sedge,sflux,scal_force,thermal1,umac,w0,w0mac, &
+    !                      rho0_old,rhoh0_old,rho0_new,rhoh0_new,p0_old,p0_new, &
+    !                      tempbar,psi,dx,dt,the_bc_tower%bc_tower_array)
 
     do n=1,nlevs
        do comp = 1,dm
