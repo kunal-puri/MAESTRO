@@ -553,49 +553,53 @@ contains
 
     type (eos_t) :: eos_state
 
+    Mach_max = 1.0d0
+    temp_max = 1.0d0
+    enuc_max = 1.0d0
+    Hext_max = 1.0d0
 
-    ! weight is the factor by which the volume of a cell at the current level
-    ! relates to the volume of a cell at the coarsest level of refinement.
-    weight = 1.d0 / 4.d0**(n-1)
+    ! ! weight is the factor by which the volume of a cell at the current level
+    ! ! relates to the volume of a cell at the coarsest level of refinement.
+    ! weight = 1.d0 / 4.d0**(n-1)
 
-    do j = lo(2), hi(2)
-       y = prob_lo(2) + (dble(j) + HALF) * dx(2)
+    ! do j = lo(2), hi(2)
+    !    y = prob_lo(2) + (dble(j) + HALF) * dx(2)
        
-       do i = lo(1), hi(1)
-          x = prob_lo(1) + (dble(i) + HALF) * dx(1)
+    !    do i = lo(1), hi(1)
+    !       x = prob_lo(1) + (dble(i) + HALF) * dx(1)
 
-          cell_valid = .true.
-          if (present(mask)) then
-             if ( (.not. mask(i,j)) ) cell_valid = .false.
-          endif
+    !       cell_valid = .true.
+    !       if (present(mask)) then
+    !          if ( (.not. mask(i,j)) ) cell_valid = .false.
+    !       endif
 
-          if (cell_valid) then
+    !       if (cell_valid) then
 
-             ! vel is the magnitude of the velocity, including w0
-             vel = sqrt(  u(i,j,1)**2 + &
-                        ( u(i,j,2) + HALF*(w0(j) + w0(j+1)) )**2 )
+    !          ! vel is the magnitude of the velocity, including w0
+    !          vel = sqrt(  u(i,j,1)**2 + &
+    !                     ( u(i,j,2) + HALF*(w0(j) + w0(j+1)) )**2 )
 
              
-             ! call the EOS to get the sound speed and internal energy       
-             eos_state%T     = s(i,j,temp_comp)
-             eos_state%rho   = s(i,j,rho_comp)
-             eos_state%xn(:) = s(i,j,spec_comp:spec_comp+nspec-1)/eos_state%rho
+    !          ! call the EOS to get the sound speed and internal energy       
+    !          eos_state%T     = s(i,j,temp_comp)
+    !          eos_state%rho   = s(i,j,rho_comp)
+    !          eos_state%xn(:) = s(i,j,spec_comp:spec_comp+nspec-1)/eos_state%rho
 
-             call eos(eos_input_rt, eos_state, .false.)
+    !          call eos(eos_input_rt, eos_state, .false.)
 
 
-             ! max Mach number                                       
-             Mach_max = max(Mach_max,vel/eos_state%cs)
+    !          ! max Mach number                                       
+    !          Mach_max = max(Mach_max,vel/eos_state%cs)
 
-             ! max temp and enuc
-             temp_max = max(temp_max,s(i,j,temp_comp))
-             enuc_max = max(enuc_max,rho_Hnuc(i,j)/s(i,j,rho_comp))
-             Hext_max = max(Hext_max,rho_Hext(i,j)/s(i,j,rho_comp))
+    !          ! max temp and enuc
+    !          temp_max = max(temp_max,s(i,j,temp_comp))
+    !          enuc_max = max(enuc_max,rho_Hnuc(i,j)/s(i,j,rho_comp))
+    !          Hext_max = max(Hext_max,rho_Hext(i,j)/s(i,j,rho_comp))
 
-          endif  ! cell valid
+    !       endif  ! cell valid
 
-       enddo
-    enddo
+    !    enddo
+    ! enddo
 
   end subroutine diag_2d
 
