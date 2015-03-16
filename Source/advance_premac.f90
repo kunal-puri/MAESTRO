@@ -7,7 +7,7 @@ module pre_advance_module
   use bl_types, only: dp_t
   use multifab_module, only: multifab, multifab_build, multifab_build_edge, &
                              multifab_plus_plus_c, &
-                             get_layout, nghost, destroy
+                             get_layout, nghost, destroy, max_val, min_val
   use ml_layout_module, only: ml_layout
   use define_bc_module, only: bc_level
 
@@ -89,7 +89,8 @@ contains
     end do
 
     call mkutrans(uold,ufull,utrans,w0,w0mac,dx,dt,the_bc_level,mla)
-
+    write(*, *) 'AFTER MKUTRANS', max_val(utrans(1,1)), min_val(utrans(1,1)), &
+         max_val(utrans(1,2)), min_val(utrans(1,2))
     !*************************************************************
     !     Create force, initializing with pressure gradient and buoyancy terms, and
     !     the utilde . gradw0 force

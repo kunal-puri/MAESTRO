@@ -58,7 +58,7 @@ contains
     do n=1,nlevs
 
        do i=1, nfabs(u(n))
-
+          
           up  => dataptr(u(n),i)
           ufp => dataptr(ufull(n),i)
           utp => dataptr(utrans(n,1),i)
@@ -74,6 +74,9 @@ contains
                               the_bc_level(n)%phys_bc_level_array(i,:,:))
           case (2)
              vtp => dataptr(utrans(n,2),i)
+
+             write(*, *) 'DOING MKUTRANS', lo(1), hi(1), lo(2), hi(2), ng_u, ng_ut
+
              call mkutrans_2d(up(:,:,1,:), ng_u, &
                               ufp(:,:,1,:), ng_uf, &
                               utp(:,:,1,1), vtp(:,:,1,1), ng_ut, w0(n,:), &
@@ -312,6 +315,7 @@ contains
        call slopex_2d(u(:,:,1:),slopex,lo,hi,ng_u,1,adv_bc(:,:,1:))
        call slopey_2d(u(:,:,2:),slopey,lo,hi,ng_u,1,adv_bc(:,:,2:))
     else if (ppm_type .eq. 1 .or. ppm_type .eq. 2) then
+       write(*, *) 'CALLING PPM2D for U', shape(u(:,:,1))
        call ppm_2d(u(:,:,1),ng_u, &
                    u(:,:,1),u(:,:,2),ng_uf, &
                    Ip,Im,lo,hi,adv_bc(:,:,1),dx,dt,.false.)
@@ -379,6 +383,9 @@ contains
                (abs(ulx(i,j)+urx(i,j)) .lt. rel_eps))
           utrans(i,j) = merge(ulx(i,j),urx(i,j),uavg .gt. ZERO)
           utrans(i,j) = merge(ZERO,utrans(i,j),test)
+
+          write(*, *) 'SETTING UTRANS', i, j, u(i, j,1), ulx(i, j), urx(i, j)
+
        end do
     end do
 

@@ -329,8 +329,12 @@ contains
        end do
     end do
     
+    write(*, *) 'BEFORE ADVANCE PREMAC', max_val(uold(1)), min_val(uold(1)), &
+         max_val(umac(1,1)), min_val(umac(1,1)), max_val(umac(1,2)), min_val(umac(1,2))
     call advance_premac(uold,sold,umac,gpi,normal,w0,w0mac,w0_force,w0_force_cart, &
                         rho0_old,grav_cell_old,dx,dt,the_bc_tower%bc_tower_array,mla)
+!    write(*, *) 'AFTER ADVANCE PREMAC', max_val(uold(1)), min_val(uold(1)), &
+!         max_val(umac(1,1)), min_val(umac(1,1)), max_val(umac(1,2)), min_val(umac(1,2))
 
     if (dm .eq. 3) then
        do n=1,nlevs
