@@ -427,9 +427,10 @@ subroutine varden()
      !----------------------------------------------------------------------
      ! Compute the initial time step
      !----------------------------------------------------------------------
-    
-     call firstdt(mla,the_bc_tower%bc_tower_array,uold,gpi,sold,Source_old, &
-                  rho0_old,p0_old,grav_cell,gamma1bar,dx,cflfac,dt)
+
+     !call firstdt(mla,the_bc_tower%bc_tower_array,uold,gpi,sold,Source_old, &
+     !             rho0_old,p0_old,grav_cell,gamma1bar,dx,cflfac,dt)
+     dt = fixed_dt
 
      if (parallel_IOProcessor() .and. verbose .ge. 1) then
         print*,"Minimum firstdt over all levels =",dt
