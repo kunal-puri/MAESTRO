@@ -17,7 +17,7 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine make_gamma(mla,gamma,s,p0,dx)
-
+    use bl_constants_module, only: ONE
     use bl_prof_module
     use ml_cc_restriction_module
     use multifab_fill_ghost_module
@@ -41,30 +41,34 @@ contains
     dm = mla%dim
     nlevs = mla%nlevel
 
-    ng_g = nghost(gamma(1))
-    ng_s = nghost(s(1))
-
-    do n = 1, nlevs
-       do i = 1, nfabs(s(n))
-          gamp => dataptr(gamma(n), i)
-          sp   => dataptr(s(n), i)
-          lo = lwb(get_box(s(n), i))
-          hi = upb(get_box(s(n), i))
-          select case (dm)
-          case (1)
-             call make_gamma_1d(lo,hi,gamp(:,1,1,1),ng_g,sp(:,1,1,:),ng_s,p0(n,:))
-          case (2)
-             call make_gamma_2d(lo,hi,gamp(:,:,1,1),ng_g,sp(:,:,1,:),ng_s,p0(n,:))
-          case (3)
-             if (spherical .eq. 1) then
-                call make_gamma_3d_sphr(lo,hi,gamp(:,:,:,1),ng_g,sp(:,:,:,:),ng_s,p0(1,:), &
-                                        dx(n,:))
-             else
-                call make_gamma_3d(lo,hi,gamp(:,:,:,1),ng_g,sp(:,:,:,:),ng_s,p0(n,:))
-             end if
-          end select
-       end do
+    do n = 1,nlevs
+       call setval(gamma(n), ONE, all=.true.)
     end do
+
+    ! ng_g = nghost(gamma(1))
+    ! ng_s = nghost(s(1))
+
+    ! do n = 1, nlevs
+    !    do i = 1, nfabs(s(n))
+    !       gamp => dataptr(gamma(n), i)
+    !       sp   => dataptr(s(n), i)
+    !       lo = lwb(get_box(s(n), i))
+    !       hi = upb(get_box(s(n), i))
+    !       select case (dm)
+    !       case (1)
+    !          call make_gamma_1d(lo,hi,gamp(:,1,1,1),ng_g,sp(:,1,1,:),ng_s,p0(n,:))
+    !       case (2)
+    !          call make_gamma_2d(lo,hi,gamp(:,:,1,1),ng_g,sp(:,:,1,:),ng_s,p0(n,:))
+    !       case (3)
+    !          if (spherical .eq. 1) then
+    !             call make_gamma_3d_sphr(lo,hi,gamp(:,:,:,1),ng_g,sp(:,:,:,:),ng_s,p0(1,:), &
+    !                                     dx(n,:))
+    !          else
+    !             call make_gamma_3d(lo,hi,gamp(:,:,:,1),ng_g,sp(:,:,:,:),ng_s,p0(n,:))
+    !          end if
+    !       end select
+    !    end do
+    ! end do
 
     ! gamma1 has no ghost cells so we don't need to fill them
     ! the loop over nlevs must count backwards to make sure the finer grids are done first
