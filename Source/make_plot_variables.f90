@@ -821,7 +821,7 @@ contains
 
           pt_index(:) = (/i, j, -1/)
 
-          call eos(eos_input_rh, eos_state, .false., pt_index)
+          !call eos(eos_input_rh, eos_state, .false., pt_index)
 
           T(i,j) = eos_state%T
           if (.not. use_tfromp) tpert(i,j) = eos_state%T - tempbar(j)
@@ -1115,7 +1115,7 @@ contains
           pt_index(:) = (/i, j, -1/)
 
           ! (rho,P) --> T,h
-          call eos(eos_input_rp, eos_state, .false., pt_index)
+          !call eos(eos_input_rp, eos_state, .false., pt_index)
 
           t(i,j) = eos_state%T
           if (use_tfromp) tpert(i,j) = eos_state%T - tempbar(j)
