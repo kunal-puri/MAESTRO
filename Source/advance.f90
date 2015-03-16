@@ -788,12 +788,12 @@ contains
     end do
 
     ! p0 is only used for the delta_gamma1_term
-    call make_S(Source_new,delta_gamma1_term,delta_gamma1, &
-                snew,uold, &
-                normal, &
-                rho_omegadot2,rho_Hnuc2,rho_Hext,thermal2, &
-                p0_old,gamma1bar,delta_gamma1_termbar,psi, &
-                dx,mla,the_bc_tower%bc_tower_array)
+    !call make_S(Source_new,delta_gamma1_term,delta_gamma1, &
+    !            snew,uold, &
+    !            normal, &
+    !            rho_omegadot2,rho_Hnuc2,rho_Hext,thermal2, &
+    !            p0_old,gamma1bar,delta_gamma1_termbar,psi, &
+    !            dx,mla,the_bc_tower%bc_tower_array)
 
     do n=1,nlevs
        call destroy(rho_Hext(n))
@@ -804,7 +804,7 @@ contains
        call multifab_build(Source_nph(n), mla%la(n), 1, 0)
     end do
 
-    call make_S_at_halftime(mla,Source_nph,Source_old,Source_new,the_bc_tower%bc_tower_array)
+    !call make_S_at_halftime(mla,Source_nph,Source_old,Source_new,the_bc_tower%bc_tower_array)
 
     do n=1,nlevs
        call multifab_build(delta_p_term(n), mla%la(n), 1, 0)
