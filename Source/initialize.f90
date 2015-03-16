@@ -865,7 +865,7 @@ contains
        end do
     end if
 
-    call initveldata(uold,s0_init,p0_init,dx,the_bc_tower%bc_tower_array,mla)
+    call initveldata(uold,s0_init,p0_init,dx,the_bc_tower%bc_tower_array,mla, prob_lo)
     call initscalardata(sold,s0_init,p0_init,dx,the_bc_tower%bc_tower_array,mla)
 
     p0_old       = p0_init
@@ -1305,7 +1305,7 @@ contains
     ! create numdisjointchunks, r_start_coord, r_end_coord
     call init_multilevel(sold)
 
-    call initveldata(uold,s0_init,p0_init,dx,the_bc_tower%bc_tower_array,mla)
+    call initveldata(uold,s0_init,p0_init,dx,the_bc_tower%bc_tower_array,mla, prob_lo)
     call initscalardata(sold,s0_init,p0_init,dx,the_bc_tower%bc_tower_array,mla)
 
     p0_old       = p0_init
