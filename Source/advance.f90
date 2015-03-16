@@ -1320,9 +1320,7 @@ contains
     do n=1,nlevs
        call multifab_build(rhohalf(n), mla%la(n), 1, 1)
     end do
-
     call make_at_halftime(rhohalf,sold,snew,rho_comp,1,the_bc_tower%bc_tower_array,mla)
-    
     call velocity_advance(mla,uold,unew,sold,rhohalf,umac,gpi,normal,w0,w0mac,w0_force, &
                           w0_force_cart,rho0_old,rho0_nph,grav_cell_old,grav_cell_nph, &
                           dx,dt,the_bc_tower%bc_tower_array,sponge)
@@ -1361,8 +1359,8 @@ contains
           call multifab_build(hgrhs_old(n), mla%la(n), 1, 0, nodal)
           call multifab_copy(hgrhs_old(n),hgrhs(n))
        end do
-       call make_hgrhs(the_bc_tower,mla,hgrhs,Source_new,delta_gamma1_term, &
-                       Sbar,div_coeff_nph,dx)
+       !call make_hgrhs(the_bc_tower,mla,hgrhs,Source_new,delta_gamma1_term, &
+       !                Sbar,div_coeff_nph,dx)
        do n=1,nlevs
           call multifab_sub_sub(hgrhs(n),hgrhs_old(n))
           call multifab_div_div_s(hgrhs(n),dt)
@@ -1371,7 +1369,6 @@ contains
     else
 
        proj_type = regular_timestep_comp
-
        call make_hgrhs(the_bc_tower,mla,hgrhs,Source_new,delta_gamma1_term, &
                        Sbar,div_coeff_nph,dx)
 
@@ -1432,17 +1429,17 @@ contains
        call multifab_build(div_coeff_3d(n), mla%la(n), 1, 1)
     end do
        
-    call put_1d_array_on_cart(div_coeff_nph,div_coeff_3d,foextrap_comp,.false., &
-                              .false.,dx,the_bc_tower%bc_tower_array,mla)
+    !call put_1d_array_on_cart(div_coeff_nph,div_coeff_3d,foextrap_comp,.false., &
+    !                          .false.,dx,the_bc_tower%bc_tower_array,mla)
 
-    call hgproject(proj_type,mla,unew,uold,rhohalf,pi,gpi,dx,dt,the_bc_tower,div_coeff_3d,hgrhs)
+    !call hgproject(proj_type,mla,unew,uold,rhohalf,pi,gpi,dx,dt,the_bc_tower,div_coeff_3d,hgrhs)
 
     do n = 1, nlevs
        call multifab_build(pi_cc(n), mla%la(n), 1, 0)
        call setval(pi_cc(n), ZERO, all=.true.)
     enddo
 
-    call make_pi_cc(mla,pi,pi_cc,the_bc_tower%bc_tower_array,div_coeff_3d)
+    !call make_pi_cc(mla,pi,pi_cc,the_bc_tower%bc_tower_array,div_coeff_3d)
 
     do n = 1, nlevs
        call multifab_copy_c(snew(n),pi_comp,pi_cc(n),1,1)
@@ -1533,7 +1530,6 @@ contains
        print *, '   Misc            : ', misc_time_max   , ' seconds'
        print *, ' '
     endif
-    
   end subroutine advance_timestep
 
 end module advance_timestep_module
