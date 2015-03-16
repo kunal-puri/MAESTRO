@@ -543,10 +543,9 @@ contains
        call multifab_build_edge(etarhoflux(n), mla%la(n), 1, 0, dm)
        call setval(etarhoflux(n),ZERO,all=.true.)
     end do
-
-    call density_advance(mla,1,s1,s2,sedge,sflux,scal_force,umac,w0,w0mac,etarhoflux, &
-                         rho0_old,rho0_new,p0_new,rho0_predicted_edge, &
-                         dx,dt,the_bc_tower%bc_tower_array)
+    !call density_advance(mla,1,s1,s2,sedge,sflux,scal_force,umac,w0,w0mac,etarhoflux, &
+    !                     rho0_old,rho0_new,p0_new,rho0_predicted_edge, &
+    !                     dx,dt,the_bc_tower%bc_tower_array)
 
     ! Now compute the new etarho
     if (evolve_base_state) then
@@ -629,10 +628,9 @@ contains
     if (parallel_IOProcessor() .and. verbose .ge. 1) then
        write(6,*) '            : enthalpy_advance >>> '
     end if
-
-    call enthalpy_advance(mla,1,uold,s1,s2,sedge,sflux,scal_force,thermal1,umac,w0,w0mac, &
-                          rho0_old,rhoh0_old,rho0_new,rhoh0_new,p0_old,p0_new, &
-                          tempbar,psi,dx,dt,the_bc_tower%bc_tower_array)
+    !call enthalpy_advance(mla,1,uold,s1,s2,sedge,sflux,scal_force,thermal1,umac,w0,w0mac, &
+    !                      rho0_old,rhoh0_old,rho0_new,rhoh0_new,p0_old,p0_new, &
+    !                      tempbar,psi,dx,dt,the_bc_tower%bc_tower_array)
 
     do n = 1, nlevs
        do comp = 1,dm
@@ -645,7 +643,7 @@ contains
 
     if (barrier_timers) call parallel_barrier()
     advect_time = advect_time + parallel_wtime() - advect_time_start
-
+    write(*,*) 'STEP 4a'
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !! STEP 4a (Option I) -- Add thermal conduction (only enthalpy terms)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
