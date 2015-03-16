@@ -643,7 +643,6 @@ contains
 
     if (barrier_timers) call parallel_barrier()
     advect_time = advect_time + parallel_wtime() - advect_time_start
-    write(*,*) 'STEP 4a'
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !! STEP 4a (Option I) -- Add thermal conduction (only enthalpy terms)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -670,7 +669,6 @@ contains
        call multifab_copy_c(s2(n),temp_comp,s1(n),temp_comp,1,nghost(sold(n)))
        call multifab_copy_c(s2(n),pi_comp,  s1(n),pi_comp,  1,nghost(sold(n)))
     end do
-
     ! now update temperature
     if (use_tfromp) then
        call makeTfromRhoP(s2,p0_new,mla,the_bc_tower%bc_tower_array,dx)
@@ -694,7 +692,6 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !! STEP 5 -- react the full state and then base state through dt/2
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    
     react_time_start = parallel_wtime()
 
     if (parallel_IOProcessor() .and. verbose .ge. 1) then
@@ -705,8 +702,8 @@ contains
        call multifab_build(rho_Hext(n), mla%la(n), 1, 0)
     end do
     
-    call react_state(mla,tempbar_init,s2,snew,rho_omegadot2,rho_Hnuc2,rho_Hext,p0_new,halfdt,dx, &
-                     the_bc_tower%bc_tower_array)
+    !call react_state(mla,tempbar_init,s2,snew,rho_omegadot2,rho_Hnuc2,rho_Hext,p0_new,halfdt,dx, &
+    !                 the_bc_tower%bc_tower_array)
 
     do n=1,nlevs
        call destroy(s2(n))
