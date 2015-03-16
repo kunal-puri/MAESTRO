@@ -64,80 +64,84 @@ contains
     dm = mla%dim
 
     do n = 1, nlevs
-       if (ppm_trace_forces == 0) then
-          call multifab_build(force(n),get_layout(uold(n)),dm,1)
-       else
-          ! tracing needs more ghost cells
-          call multifab_build(force(n),get_layout(uold(n)),dm,uold(n)%ng)
-       endif
+       call multifab_copy(unew(n), uold(n))
     end do
 
-    !********************************************************
-    !     Create the velocity forcing term at time n using rho 
-    !********************************************************
+    ! do n = 1, nlevs
+    !    if (ppm_trace_forces == 0) then
+    !       call multifab_build(force(n),get_layout(uold(n)),dm,1)
+    !    else
+    !       ! tracing needs more ghost cells
+    !       call multifab_build(force(n),get_layout(uold(n)),dm,uold(n)%ng)
+    !    endif
+    ! end do
 
-    is_final_update = .false.
-    call mk_vel_force(force,is_final_update, &
-                      uold,umac,w0,w0mac,gpi,sold,rho_comp,normal, &
-                      rho0_old,grav_cell_old,dx, &
-                      w0_force,w0_force_cart_vec,the_bc_level,mla,.true.)
+    ! !********************************************************
+    ! !     Create the velocity forcing term at time n using rho 
+    ! !********************************************************
+
+    ! is_final_update = .false.
+    ! call mk_vel_force(force,is_final_update, &
+    !                   uold,umac,w0,w0mac,gpi,sold,rho_comp,normal, &
+    !                   rho0_old,grav_cell_old,dx, &
+    !                   w0_force,w0_force_cart_vec,the_bc_level,mla,.true.)
 
 
-    !********************************************************
-    !     Add w0 to MAC velocities (trans velocities already have w0).
-    !********************************************************
+    ! !********************************************************
+    ! !     Add w0 to MAC velocities (trans velocities already have w0).
+    ! !********************************************************
     
-    call addw0(umac,the_bc_level,mla,w0,w0mac,mult=ONE)
+    ! call addw0(umac,the_bc_level,mla,w0,w0mac,mult=ONE)
     
-    !********************************************************
-    !     Create the edge states of velocity using the MAC velocity plus w0 on edges. 
-    !********************************************************
+    ! !********************************************************
+    ! !     Create the edge states of velocity using the MAC velocity plus w0 on edges. 
+    ! !********************************************************
     
-    do n=1,nlevs
-       do comp=1,dm
-          call multifab_build_edge(uedge(n,comp),mla%la(n),dm,0,comp)
-       end do
-    end do
+    ! do n=1,nlevs
+    !    do comp=1,dm
+    !       call multifab_build_edge(uedge(n,comp),mla%la(n),dm,0,comp)
+    !    end do
+    ! end do
 
-    if (bds_type .eq. 0) then
-       call make_edge_scal(uold,uedge,umac,force, &
-                           dx,dt,is_vel,the_bc_level,1,1,dm,.false.,mla)
-    else if (bds_type .eq. 1) then
-       call bds(uold,uedge,umac,force, &
-                dx,dt,is_vel,the_bc_level,1,1,dm,.false.,mla)
+    ! if (bds_type .eq. 0) then
+    !    call make_edge_scal(uold,uedge,umac,force, &
+    !                        dx,dt,is_vel,the_bc_level,1,1,dm,.false.,mla)
+    ! else if (bds_type .eq. 1) then
+    !    call bds(uold,uedge,umac,force, &
+    !             dx,dt,is_vel,the_bc_level,1,1,dm,.false.,mla)
 
-    end if
+    ! end if
 
-    !********************************************************
-    !     Subtract w0 from MAC velocities.
-    !********************************************************
+    ! !********************************************************
+    ! !     Subtract w0 from MAC velocities.
+    ! !********************************************************
 
-    call addw0(umac,the_bc_level,mla,w0,w0mac,mult=-ONE)
+    ! call addw0(umac,the_bc_level,mla,w0,w0mac,mult=-ONE)
 
-    !********************************************************
-    !     Now create the force at half-time using rhohalf 
-    !********************************************************
+    ! !********************************************************
+    ! !     Now create the force at half-time using rhohalf 
+    ! !********************************************************
 
-    is_final_update = .true.
-    call mk_vel_force(force,is_final_update, &
-                      uold,umac,w0,w0mac,gpi,rhohalf,1,normal, &
-                      rho0_nph,grav_cell_nph,dx, &
-                      w0_force,w0_force_cart_vec,the_bc_level,mla,.true.)
+    ! is_final_update = .true.
+    ! call mk_vel_force(force,is_final_update, &
+    !                   uold,umac,w0,w0mac,gpi,rhohalf,1,normal, &
+    !                   rho0_nph,grav_cell_nph,dx, &
+    !                   w0_force,w0_force_cart_vec,the_bc_level,mla,.true.)
 
 
-    !********************************************************
-    !     Update the velocity with convective differencing
-    !********************************************************
+    ! !********************************************************
+    ! !     Update the velocity with convective differencing
+    ! !********************************************************
     
-    call update_velocity(uold,unew,umac,uedge,force,w0,w0mac, &
-                         dx,dt,sponge,mla,the_bc_level)
+    ! call update_velocity(uold,unew,umac,uedge,force,w0,w0mac, &
+    !                      dx,dt,sponge,mla,the_bc_level)
 
-    do n = 1, nlevs
-       call destroy(force(n))
-       do comp=1,dm
-          call destroy(uedge(n,comp))
-       end do
-    end do
+    ! do n = 1, nlevs
+    !    call destroy(force(n))
+    !    do comp=1,dm
+    !       call destroy(uedge(n,comp))
+    !    end do
+    ! end do
 
     if ( verbose .ge. 1 ) then
        do n = 1, nlevs
