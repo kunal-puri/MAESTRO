@@ -37,7 +37,7 @@ contains
 
     ! SETTING SCALAR DATA SOLD TO 1
     do n = 1, nlevs
-       call setval(s(n), 10*ONE, all=.true.)
+       call setval(s(n), ONE, all=.true.)
     end do
 
     ! do n=1,nlevs
