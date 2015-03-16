@@ -666,14 +666,12 @@ subroutine varden()
            write(unit=plot_index7,fmt='(i7.7)') istep
            plot_file_name = trim(plot_base_name) // plot_index7
         endif
-
         call make_plotfile(plot_file_name,mla,uold,sold,pi,gpi,rho_omegadot2, &
                            rho_Hnuc2,rho_Hext, &
                            thermal2,Source_old,sponge,mla%mba,plot_names,dx, &
                            the_bc_tower,w0,rho0_old,rhoh0_old,p0_old, &
                            tempbar,gamma1bar,etarho_cc, &
                            normal,dt,particles,write_pf_time)
-
         call write_base_state(istep, plot_file_name, &
                               rho0_old, rhoh0_old, p0_old, gamma1bar, &
                               w0, etarho_ec, etarho_cc, &
@@ -1099,9 +1097,10 @@ subroutine varden()
         if (istep > 1) then
 
            dt = 1.d20
-
-           call estdt(mla,the_bc_tower,uold,sold,gpi,Source_old,dSdt, &
-                      w0,rho0_old,p0_old,gamma1bar,grav_cell,dx,cflfac,dt)
+           
+           !call estdt(mla,the_bc_tower,uold,sold,gpi,Source_old,dSdt, &
+           !           w0,rho0_old,p0_old,gamma1bar,grav_cell,dx,cflfac,dt)
+           dt = fixed_dt
 
            if (parallel_IOProcessor() .and. verbose .ge. 1) then
               print*,''
@@ -1165,7 +1164,7 @@ subroutine varden()
            call make_sponge(sponge,dx,dt,mla)
         end if
         runtime1 = parallel_wtime()
-
+        write(*,*) 'ADVANCING TIMESTEP IN THE MAIN LOOP'
         call advance_timestep(init_mode,mla,uold,sold,unew,snew,gpi,pi,normal,rho0_old, &
                               rhoh0_old,rho0_new,rhoh0_new,p0_old,p0_new,tempbar,gamma1bar, &
                               w0,rho_omegadot2,rho_Hnuc2,rho_Hext,thermal2, &
@@ -1173,8 +1172,7 @@ subroutine varden()
                               grav_cell,dx,dt,dtold,the_bc_tower,dSdt,Source_old, &
                               Source_new,etarho_ec,etarho_cc,psi,sponge,hgrhs,tempbar_init, &
                               particles)
-
-
+        write(*, *) 'DONE ADVANCING TIME-STEP'
         ! limit the timestep if the temperature is changing too rapidly
         if (nuclear_dt_fac .gt. 0.d0) then
            smaxold = 0.d0

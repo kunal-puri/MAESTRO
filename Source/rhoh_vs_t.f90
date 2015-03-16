@@ -1168,7 +1168,7 @@ contains
   ! makeTfromRhoP
   !============================================================================
   subroutine makeTfromRhoP(state,p0,mla,the_bc_level,dx)
-
+    use bl_constants_module, only: ONE, ZERO
     use variables,             only: temp_comp
     use bl_prof_module
     use geometry, only: spherical
@@ -1191,29 +1191,33 @@ contains
     dm = mla%dim
     nlevs = mla%nlevel
 
-    ng = nghost(state(1))
-
-    do n=1,nlevs
-
-       do i=1,nfabs(state(n))
-          sp => dataptr(state(n),i)
-          lo = lwb(get_box(state(n),i))
-          hi = upb(get_box(state(n),i))
-          select case (dm)
-          case (1)
-             call makeTfromRhoP_1d(sp(:,1,1,:),lo,hi,ng,p0(n,:))
-          case (2)
-             call makeTfromRhoP_2d(sp(:,:,1,:),lo,hi,ng,p0(n,:))
-          case (3)
-             if (spherical .eq. 1) then
-                call makeTfromRhoP_3d_sphr(sp(:,:,:,:),lo,hi,ng,p0(1,:),dx(n,:))
-             else
-                call makeTfromRhoP_3d(sp(:,:,:,:),lo,hi,ng,p0(n,:))
-             end if
-          end select
-       end do
-
+    do n = 1,nlevs
+       call setval(state(n),ONE,all=.true.)
     end do
+
+    ! ng = nghost(state(1))
+
+    ! do n=1,nlevs
+
+    !    do i=1,nfabs(state(n))
+    !       sp => dataptr(state(n),i)
+    !       lo = lwb(get_box(state(n),i))
+    !       hi = upb(get_box(state(n),i))
+    !       select case (dm)
+    !       case (1)
+    !          call makeTfromRhoP_1d(sp(:,1,1,:),lo,hi,ng,p0(n,:))
+    !       case (2)
+    !          call makeTfromRhoP_2d(sp(:,:,1,:),lo,hi,ng,p0(n,:))
+    !       case (3)
+    !          if (spherical .eq. 1) then
+    !             call makeTfromRhoP_3d_sphr(sp(:,:,:,:),lo,hi,ng,p0(1,:),dx(n,:))
+    !          else
+    !             call makeTfromRhoP_3d(sp(:,:,:,:),lo,hi,ng,p0(n,:))
+    !          end if
+    !       end select
+    !    end do
+
+    ! end do
 
     ! restrict data and fill all ghost cells
     call ml_restrict_and_fill(nlevs,state,mla%mba%rr,the_bc_level, &
@@ -1429,7 +1433,7 @@ contains
   ! makePfromRhoH
   !============================================================================
   subroutine makePfromRhoH(state,sold,peos,mla,the_bc_level)
-
+    use bl_constants_module
     use variables,             only: foextrap_comp, temp_comp
     use bl_prof_module
 
@@ -1457,28 +1461,32 @@ contains
     ng_so = nghost(sold(1))
     ng_p  = nghost(peos(1))
 
-    do n=1,nlevs
-
-       do i=1,nfabs(state(n))
-          snp => dataptr(state(n),i)
-          sop => dataptr(sold(n),i)
-          pnp => dataptr(peos(n),i)
-          lo = lwb(get_box(state(n),i))
-          hi = upb(get_box(state(n),i))
-          select case (dm)
-          case (1)
-             call makePfromRhoH_1d(snp(:,1,1,:), sop(:,1,1,temp_comp), pnp(:,1,1,1), &
-                                   lo, hi, ng_s, ng_so, ng_p)
-          case (2)
-             call makePfromRhoH_2d(snp(:,:,1,:), sop(:,:,1,temp_comp), pnp(:,:,1,1), &
-                                   lo, hi, ng_s, ng_so, ng_p)
-          case (3)
-             call makePfromRhoH_3d(snp(:,:,:,:), sop(:,:,:,temp_comp), pnp(:,:,:,1), &
-                                   lo, hi, ng_s, ng_so, ng_p)
-          end select
-       end do
-
+    do n = 1, nlevs
+       call setval(peos(n),ZERO,all=.true.)
     end do
+
+    ! do n=1,nlevs
+
+    !    do i=1,nfabs(state(n))
+    !       snp => dataptr(state(n),i)
+    !       sop => dataptr(sold(n),i)
+    !       pnp => dataptr(peos(n),i)
+    !       lo = lwb(get_box(state(n),i))
+    !       hi = upb(get_box(state(n),i))
+    !       select case (dm)
+    !       case (1)
+    !          call makePfromRhoH_1d(snp(:,1,1,:), sop(:,1,1,temp_comp), pnp(:,1,1,1), &
+    !                                lo, hi, ng_s, ng_so, ng_p)
+    !       case (2)
+    !          call makePfromRhoH_2d(snp(:,:,1,:), sop(:,:,1,temp_comp), pnp(:,:,1,1), &
+    !                                lo, hi, ng_s, ng_so, ng_p)
+    !       case (3)
+    !          call makePfromRhoH_3d(snp(:,:,:,:), sop(:,:,:,temp_comp), pnp(:,:,:,1), &
+    !                                lo, hi, ng_s, ng_so, ng_p)
+    !       end select
+    !    end do
+
+    ! end do
 
     ! restrict data and fill all ghost cells
     call ml_restrict_and_fill(nlevs,peos,mla%mba%rr,the_bc_level, &

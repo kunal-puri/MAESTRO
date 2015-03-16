@@ -121,6 +121,7 @@ contains
 
     ! Print the norm of each component separately -- make sure to do
     !       this before we multiply the velocities by the div_coeff.
+    write(*, *) 'BEFORE MULTIGRID'
     if (verbose .eq. 1) then
        if (parallel_IOProcessor()) print *,''
        do n = 1,nlevs
@@ -151,18 +152,18 @@ contains
        end do
     end if
 
-    if (use_div_coeff_1d) then
-       do n = 1,nlevs
-          call mult_edge_by_1d_coeff(umac(n,:),div_coeff_1d(n,:),div_coeff_1d_edge(n,:),&
-                                     .true.)
-       end do
-    else if (use_div_coeff_cart_edge) then
-       do n=1,nlevs
-          do comp=1,dm
-             call multifab_mult_mult(umac(n,comp),div_coeff_cart_edge(n,comp))
-          end do
-       end do
-    end if
+    !if (use_div_coeff_1d) then
+    !   do n = 1,nlevs
+    !      call mult_edge_by_1d_coeff(umac(n,:),div_coeff_1d(n,:),div_coeff_1d_edge(n,:),&
+    !                                 .true.)
+    !   end do
+    !else if (use_div_coeff_cart_edge) then
+    !   do n=1,nlevs
+    !      do comp=1,dm
+    !         call multifab_mult_mult(umac(n,comp),div_coeff_cart_edge(n,comp))
+    !      end do
+    !   end do
+    !end if
 
     ! Compute umac_norm to be used inside the MG solver as part of a stopping criterion
 !    umac_norm = -1.0_dp_t
@@ -172,6 +173,7 @@ contains
 !       end do
 !    end do
 
+    write(*, *) 'CALLING DIVUMAC'
     if (use_rhs) then
        call divumac(umac,rh,dx,mla%mba%rr,.true.,divu_rhs)
     else
@@ -229,18 +231,18 @@ contains
     call mkumac(mla,umac,phi,beta,fine_flx,dx,the_bc_tower)
 
     ! divide out the beta_0
-    if (use_div_coeff_1d) then
-       do n = 1,nlevs
-          call mult_edge_by_1d_coeff(umac(n,:),div_coeff_1d(n,:),div_coeff_1d_edge(n,:), &
-                                     .false.)
-       end do
-    else if (use_div_coeff_cart_edge) then
-       do n=1,nlevs
-          do comp=1,dm
-             call multifab_div_div(umac(n,comp),div_coeff_cart_edge(n,comp))
-          end do
-       end do
-    end if
+    !if (use_div_coeff_1d) then
+    !   do n = 1,nlevs
+    !      call mult_edge_by_1d_coeff(umac(n,:),div_coeff_1d(n,:),div_coeff_1d_edge(n,:), &
+    !                                 .false.)
+    !   end do
+    !else if (use_div_coeff_cart_edge) then
+    !   do n=1,nlevs
+    !      do comp=1,dm
+    !         call multifab_div_div(umac(n,comp),div_coeff_cart_edge(n,comp))
+    !      end do
+    !   end do
+    !end if
 
     if (nlevs .eq. 1) then
 
@@ -275,7 +277,8 @@ contains
     end if
     
     ! Print the norm of each component separately -- make sure to do this after we divide
-    !       the velocities by the div_coeff.                                 
+    !       the velocities by the div_coeff.    
+    write(*, *) 'AFTER MULTIGRID'
     if (verbose .eq. 1) then
        do n = 1,nlevs
           umin = multifab_max(umac(n,1))
@@ -444,7 +447,7 @@ contains
       real(kind=dp_t), intent(in   ) ::   dx(:)
 
       integer :: i,j
-
+      
       do j = lo(2),hi(2)
          do i = lo(1),hi(1)
             rh(i,j) = (umac(i+1,j) - umac(i,j)) / dx(1) + &

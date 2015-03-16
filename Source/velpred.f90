@@ -350,10 +350,10 @@ contains
        call slopey_2d(u,slopey,lo,hi,ng_u,2,adv_bc)
     else if (ppm_type .eq. 1 .or. ppm_type .eq. 2) then
        call ppm_2d(u(:,:,1),ng_u, &
-                   ufull(:,:,1),ufull(:,:,2),ng_uf, &
+                   u(:,:,1),u(:,:,2),ng_uf, &
                    Ipu,Imu,lo,hi,adv_bc(:,:,1),dx,dt,.false.)
        call ppm_2d(u(:,:,2),ng_u, &
-                   ufull(:,:,1),ufull(:,:,2),ng_uf, &
+                   u(:,:,1),u(:,:,2),ng_uf, &
                    Ipv,Imv,lo,hi,adv_bc(:,:,2),dx,dt,.false.)
 
        ! trace forces, if necessary.  Note by default the ppm routines

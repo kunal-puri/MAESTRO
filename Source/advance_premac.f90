@@ -90,7 +90,6 @@ contains
 
     call mkutrans(uold,ufull,utrans,w0,w0mac,dx,dt,the_bc_level,mla)
 
-
     !*************************************************************
     !     Create force, initializing with pressure gradient and buoyancy terms, and
     !     the utilde . gradw0 force
@@ -106,9 +105,9 @@ contains
     !     Add w0 to trans velocities.
     !*************************************************************
     
-    if (dm > 1) then
-       call addw0(utrans,the_bc_level,mla,w0,w0mac,mult=ONE)
-    end if
+    !if (dm > 1) then
+    !   call addw0(utrans,the_bc_level,mla,w0,w0mac,mult=ONE)
+    !end if
 
     !*************************************************************
     !     Create the edge states to be used for the MAC velocity 

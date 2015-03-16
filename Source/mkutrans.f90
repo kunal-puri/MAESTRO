@@ -58,6 +58,7 @@ contains
     do n=1,nlevs
 
        do i=1, nfabs(u(n))
+
           up  => dataptr(u(n),i)
           ufp => dataptr(ufull(n),i)
           utp => dataptr(utrans(n,1),i)
@@ -312,7 +313,7 @@ contains
        call slopey_2d(u(:,:,2:),slopey,lo,hi,ng_u,1,adv_bc(:,:,2:))
     else if (ppm_type .eq. 1 .or. ppm_type .eq. 2) then
        call ppm_2d(u(:,:,1),ng_u, &
-                   ufull(:,:,1),ufull(:,:,2),ng_uf, &
+                   u(:,:,1),u(:,:,2),ng_uf, &
                    Ip,Im,lo,hi,adv_bc(:,:,1),dx,dt,.false.)
     end if
 
@@ -387,7 +388,7 @@ contains
 
     if (ppm_type .eq. 1 .or. ppm_type .eq. 2) then
        call ppm_2d(u(:,:,2),ng_u, &
-                   ufull(:,:,1),ufull(:,:,2),ng_uf, &
+                   u(:,:,1),u(:,:,2),ng_uf, &
                    Ip,Im,lo,hi,adv_bc(:,:,2),dx,dt,.false.)
     end if
        

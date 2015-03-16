@@ -55,6 +55,10 @@ contains
     dm = get_dim(macrhs(1))
     nlevs = size(macrhs)
 
+    !do n = 1, nlevs
+    !   call setval(macrhs(n), ZERO, all=.true.)
+    !end do
+
     ng_rh = nghost(macrhs(1))
     ng_sr = nghost(Source(1))
     ng_dg = nghost(delta_gamma1_term(1))
