@@ -798,7 +798,8 @@ contains
   ! makeTfromRhoH
   !============================================================================
   subroutine makeTfromRhoH(state,p0,mla,the_bc_level,dx)
-
+    use bl_constants_module, only: ONE
+    use multifab_module
     use variables,             only: temp_comp
     use bl_prof_module
     use geometry, only: spherical
@@ -823,27 +824,31 @@ contains
 
     ng = nghost(state(1))
 
-    do n=1,nlevs
-
-       do i=1,nfabs(state(n))
-          sp => dataptr(state(n),i)
-          lo = lwb(get_box(state(n),i))
-          hi = upb(get_box(state(n),i))
-          select case (dm)
-          case (1)
-             call makeTfromRhoH_1d(sp(:,1,1,:), lo, hi, ng, p0(n,:))
-          case (2)
-             call makeTfromRhoH_2d(sp(:,:,1,:), lo, hi, ng, p0(n,:))
-          case (3)
-             if (spherical .eq. 1) then
-                call makeTfromRhoH_3d_sphr(sp(:,:,:,:), lo, hi, ng, p0(1,:), dx(n,:))
-             else
-                call makeTfromRhoH_3d(sp(:,:,:,:), lo, hi, ng, p0(n,:))
-             endif
-          end select
-       end do
-
+    do n = 1,nlevs
+       call setval(state(n),ONE,all=.true.)
     end do
+
+    ! do n=1,nlevs
+
+    !    do i=1,nfabs(state(n))
+    !       sp => dataptr(state(n),i)
+    !       lo = lwb(get_box(state(n),i))
+    !       hi = upb(get_box(state(n),i))
+    !       select case (dm)
+    !       case (1)
+    !          call makeTfromRhoH_1d(sp(:,1,1,:), lo, hi, ng, p0(n,:))
+    !       case (2)
+    !          call makeTfromRhoH_2d(sp(:,:,1,:), lo, hi, ng, p0(n,:))
+    !       case (3)
+    !          if (spherical .eq. 1) then
+    !             call makeTfromRhoH_3d_sphr(sp(:,:,:,:), lo, hi, ng, p0(1,:), dx(n,:))
+    !          else
+    !             call makeTfromRhoH_3d(sp(:,:,:,:), lo, hi, ng, p0(n,:))
+    !          endif
+    !       end select
+    !    end do
+
+    ! end do
 
     ! restrict data and fill all ghost cells
     call ml_restrict_and_fill(nlevs,state,mla%mba%rr,the_bc_level, &
