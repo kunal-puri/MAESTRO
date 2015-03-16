@@ -92,111 +92,115 @@ contains
     ng_f  = nghost(vel_force(1))
     ng_gp = nghost(gpi(1))
 
+    do n = 1, nlevs
+       call setval(vel_force(n),ZERO,all=.true.)
+    end do
 
-    ! put w0 and gradw0 on cell centers
-    if (spherical .eq. 1) then
-       do n=1,nlevs
-          ! w0_cart will contain the cell-centered Cartesian components of w0, 
-          ! for use in computing the Coriolis term in the prediction
-          ! w0mac is passed in and is used to compute the Coriolis term
-          ! in the cell update
-          call build(w0_cart(n),mla%la(n),dm,0)
-          call setval(w0_cart(n), ZERO, all=.true.)
 
-          call build(gradw0_cart(n),get_layout(vel_force(n)),1,1)
-          call setval(gradw0_cart(n), ZERO, all=.true.)
-       enddo       
+    ! ! put w0 and gradw0 on cell centers
+    ! if (spherical .eq. 1) then
+    !    do n=1,nlevs
+    !       ! w0_cart will contain the cell-centered Cartesian components of w0, 
+    !       ! for use in computing the Coriolis term in the prediction
+    !       ! w0mac is passed in and is used to compute the Coriolis term
+    !       ! in the cell update
+    !       call build(w0_cart(n),mla%la(n),dm,0)
+    !       call setval(w0_cart(n), ZERO, all=.true.)
 
-       if (evolve_base_state) then
-          ! fill the all dm components of the cell-centered w0_cart
-          call put_1d_array_on_cart(w0,w0_cart,1,.true.,.true.,dx, &
-                                    the_bc_level,mla)
+    !       call build(gradw0_cart(n),get_layout(vel_force(n)),1,1)
+    !       call setval(gradw0_cart(n), ZERO, all=.true.)
+    !    enddo       
 
-          if (do_add_utilde_force) then
-             !$OMP PARALLEL DO PRIVATE(r)
-             do r=0,nr_fine-1
-                gradw0_rad(1,r) = (w0(1,r+1) - w0(1,r)) / dr(1)
-             enddo
-             !$OMP END PARALLEL DO
+    !    if (evolve_base_state) then
+    !       ! fill the all dm components of the cell-centered w0_cart
+    !       call put_1d_array_on_cart(w0,w0_cart,1,.true.,.true.,dx, &
+    !                                 the_bc_level,mla)
 
-             call put_1d_array_on_cart(gradw0_rad,gradw0_cart,foextrap_comp, &
-                                       .false.,.false.,dx,the_bc_level,mla)
-          endif
+    !       if (do_add_utilde_force) then
+    !          !$OMP PARALLEL DO PRIVATE(r)
+    !          do r=0,nr_fine-1
+    !             gradw0_rad(1,r) = (w0(1,r+1) - w0(1,r)) / dr(1)
+    !          enddo
+    !          !$OMP END PARALLEL DO
+
+    !          call put_1d_array_on_cart(gradw0_rad,gradw0_cart,foextrap_comp, &
+    !                                    .false.,.false.,dx,the_bc_level,mla)
+    !       endif
                
-       end if
+    !    end if
 
-    endif
+    ! endif
 
-    do n=1,nlevs
-       do i=1,nfabs(s(n))
-          fp  => dataptr(vel_force(n),i)
-          gpp => dataptr(gpi(n),i)
-          rp  => dataptr(s(n),i)
+    ! do n=1,nlevs
+    !    do i=1,nfabs(s(n))
+    !       fp  => dataptr(vel_force(n),i)
+    !       gpp => dataptr(gpi(n),i)
+    !       rp  => dataptr(s(n),i)
 
-          lo = lwb(get_box(s(n),i))
-          hi = upb(get_box(s(n),i))
+    !       lo = lwb(get_box(s(n),i))
+    !       hi = upb(get_box(s(n),i))
 
-          ump => dataptr(umac(n,1),i)
-          ng_um = nghost(umac(1,1))
+    !       ump => dataptr(umac(n,1),i)
+    !       ng_um = nghost(umac(1,1))
 
-          select case (dm)
-          case (1)
-             call mk_vel_force_1d(fp(:,1,1,1),ng_f,gpp(:,1,1,1),ng_gp, &
-                                  rp(:,1,1,index_rho),ng_s, &
-                                  ump(:,1,1,1), ng_um, &
-                                  rho0(n,:),grav(n,:),w0(n,:),w0_force(n,:),lo,hi,n, &
-                                  do_add_utilde_force)
+    !       select case (dm)
+    !       case (1)
+    !          call mk_vel_force_1d(fp(:,1,1,1),ng_f,gpp(:,1,1,1),ng_gp, &
+    !                               rp(:,1,1,index_rho),ng_s, &
+    !                               ump(:,1,1,1), ng_um, &
+    !                               rho0(n,:),grav(n,:),w0(n,:),w0_force(n,:),lo,hi,n, &
+    !                               do_add_utilde_force)
 
-          case (2)
-             vmp => dataptr(umac(n,2),i)
-             call mk_vel_force_2d(fp(:,:,1,:),ng_f,gpp(:,:,1,:),ng_gp, &
-                                  rp(:,:,1,index_rho),ng_s, &
-                                  vmp(:,:,1,1), ng_um, &
-                                  rho0(n,:),grav(n,:),w0(n,:),w0_force(n,:),lo,hi,n, &
-                                  do_add_utilde_force)
+    !       case (2)
+    !          vmp => dataptr(umac(n,2),i)
+    !          call mk_vel_force_2d(fp(:,:,1,:),ng_f,gpp(:,:,1,:),ng_gp, &
+    !                               rp(:,:,1,index_rho),ng_s, &
+    !                               vmp(:,:,1,1), ng_um, &
+    !                               rho0(n,:),grav(n,:),w0(n,:),w0_force(n,:),lo,hi,n, &
+    !                               do_add_utilde_force)
 
-          case (3)
-             uop => dataptr(uold(n),i)
-             vmp => dataptr(umac(n,2),i)
-             wmp => dataptr(umac(n,3),i)
+    !       case (3)
+    !          uop => dataptr(uold(n),i)
+    !          vmp => dataptr(umac(n,2),i)
+    !          wmp => dataptr(umac(n,3),i)
 
-             ng_uo = nghost(uold(1))
+    !          ng_uo = nghost(uold(1))
 
-             if (spherical .eq. 1) then
-                w0cp  => dataptr(w0_cart(n), i)
-                w0xp  => dataptr(w0mac(n,1),i)
-                w0yp  => dataptr(w0mac(n,2),i)
-                w0p   => dataptr(w0_force_cart(n), i)
-                np    => dataptr(normal(n),i)
-                gw0p   => dataptr(gradw0_cart(n),i)
+    !          if (spherical .eq. 1) then
+    !             w0cp  => dataptr(w0_cart(n), i)
+    !             w0xp  => dataptr(w0mac(n,1),i)
+    !             w0yp  => dataptr(w0mac(n,2),i)
+    !             w0p   => dataptr(w0_force_cart(n), i)
+    !             np    => dataptr(normal(n),i)
+    !             gw0p   => dataptr(gradw0_cart(n),i)
 
-                ng_wm = nghost(w0mac(1,1))
-                ng_wc = nghost(w0_cart(1))
-                ng_w  = nghost(w0_force_cart(1))
-                ng_gw = nghost(gradw0_cart(1))
-                ng_n  = nghost(normal(1))
+    !             ng_wm = nghost(w0mac(1,1))
+    !             ng_wc = nghost(w0_cart(1))
+    !             ng_w  = nghost(w0_force_cart(1))
+    !             ng_gw = nghost(gradw0_cart(1))
+    !             ng_n  = nghost(normal(1))
 
-                call mk_vel_force_3d_sphr(fp(:,:,:,:),ng_f,is_final_update, &
-                                          uop(:,:,:,:),ng_uo,np(:,:,:,:),ng_n, &
-                                          ump(:,:,:,1),vmp(:,:,:,1),wmp(:,:,:,1),ng_um, &
-                                          w0cp(:,:,:,:),ng_wc,gw0p(:,:,:,1),ng_gw, &
-                                          w0xp(:,:,:,1),w0yp(:,:,:,1),ng_wm, &
-                                          gpp(:,:,:,:),ng_gp,rp(:,:,:,index_rho),ng_s, &
-                                          rho0(1,:),grav(1,:),w0p(:,:,:,:),ng_w,lo,hi,dx(n,:), &
-                                          do_add_utilde_force)
+    !             call mk_vel_force_3d_sphr(fp(:,:,:,:),ng_f,is_final_update, &
+    !                                       uop(:,:,:,:),ng_uo,np(:,:,:,:),ng_n, &
+    !                                       ump(:,:,:,1),vmp(:,:,:,1),wmp(:,:,:,1),ng_um, &
+    !                                       w0cp(:,:,:,:),ng_wc,gw0p(:,:,:,1),ng_gw, &
+    !                                       w0xp(:,:,:,1),w0yp(:,:,:,1),ng_wm, &
+    !                                       gpp(:,:,:,:),ng_gp,rp(:,:,:,index_rho),ng_s, &
+    !                                       rho0(1,:),grav(1,:),w0p(:,:,:,:),ng_w,lo,hi,dx(n,:), &
+    !                                       do_add_utilde_force)
 
-             else
-                call mk_vel_force_3d_cart(fp(:,:,:,:),ng_f,is_final_update, &
-                                          uop(:,:,:,:),ng_uo, &
-                                          ump(:,:,:,1),vmp(:,:,:,1),wmp(:,:,:,1),ng_um, &
-                                          w0(n,:), &
-                                          gpp(:,:,:,:),ng_gp,rp(:,:,:,index_rho),ng_s, &
-                                          rho0(n,:),grav(n,:),w0_force(n,:),lo,hi,n, &
-                                          do_add_utilde_force)
-             end if
-          end select
-       end do
-    enddo
+    !          else
+    !             call mk_vel_force_3d_cart(fp(:,:,:,:),ng_f,is_final_update, &
+    !                                       uop(:,:,:,:),ng_uo, &
+    !                                       ump(:,:,:,1),vmp(:,:,:,1),wmp(:,:,:,1),ng_um, &
+    !                                       w0(n,:), &
+    !                                       gpp(:,:,:,:),ng_gp,rp(:,:,:,index_rho),ng_s, &
+    !                                       rho0(n,:),grav(n,:),w0_force(n,:),lo,hi,n, &
+    !                                       do_add_utilde_force)
+    !          end if
+    !       end select
+    !    end do
+    ! enddo
 
     if (spherical .eq. 1) then
        do n=1,nlevs
