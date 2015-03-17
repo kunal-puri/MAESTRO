@@ -18,9 +18,7 @@ module vstar_module
 
 contains
 
-  subroutine compute_vstar(uold,sold,uface,gpi,normal,w0,w0mac, &
-                           w0_force,w0_force_cart_vec,rho0,grav_cell,dx,dt, &
-                           the_bc_level,mla)
+  subroutine compute_vstar(uold,sold,uface,dx,dt,the_bc_level,mla)
 
     use bl_prof_module, only: bl_prof_timer, build, destroy
     use velpred_module, only: velpred
@@ -36,14 +34,6 @@ contains
     type(multifab) , intent(in   ) :: uold(:)
     type(multifab) , intent(in   ) :: sold(:)
     type(multifab) , intent(inout) :: uface(:,:)
-    type(multifab) , intent(in   ) :: gpi(:)
-    type(multifab) , intent(in   ) :: normal(:)
-    real(kind=dp_t), intent(in   ) :: w0(:,0:)
-    type(multifab) , intent(in   ) :: w0mac(:,:)
-    real(kind=dp_t), intent(in   ) :: w0_force(:,0:)
-    type(multifab) , intent(in   ) :: w0_force_cart_vec(:)
-    real(kind=dp_t), intent(in   ) :: rho0(:,0:)
-    real(kind=dp_t), intent(in   ) :: grav_cell(:,0:)
     real(kind=dp_t), intent(in   ) :: dx(:,:),dt
     type(bc_level) , intent(in   ) :: the_bc_level(:)
     type(ml_layout), intent(inout) :: mla
@@ -65,14 +55,7 @@ contains
     do n=1,nlevs
        ! tracing needs more ghost cells
        call multifab_build(force(n),get_layout(uold(n)),dm,uold(n)%ng)
-       call multifab_build(ufull(n),get_layout(uold(n)),dm,nghost(uold(n)))
     end do
-
-    ! create fullu = uold + w0
-    call put_1d_array_on_cart(w0,ufull,1,.true.,.true.,dx,the_bc_level,mla)
-    do n=1,nlevs
-       call multifab_plus_plus_c(ufull(n),1,uold(n),1,dm,nghost(uold(n)))
-    end do    
 
     !*************************************************************
     !     Create utrans.
@@ -99,7 +82,6 @@ contains
 
     do n = 1,nlevs
        call destroy(force(n))
-       call destroy(ufull(n))
        do comp=1,dm
           call destroy(utrans(n,comp))
        end do

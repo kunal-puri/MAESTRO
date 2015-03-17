@@ -336,8 +336,7 @@ contains
     end do
     
     ! Compute the non-divergence free velocities
-    call compute_vstar(uold,sold,uface,gpi,normal,w0,w0mac,w0_force,w0_force_cart, &
-                       rho0_old,grav_cell_old,dx,dt,the_bc_tower%bc_tower_array,mla)
+    call compute_vstar(uold,sold,uface,dx,dt,the_bc_tower%bc_tower_array,mla)
 
     if (dm .eq. 3) then
        do n=1,nlevs
