@@ -48,7 +48,7 @@ contains
 
   ! NOTE: this routine differs from that in varden because phi is passed in/out 
   !       rather than allocated here
-  subroutine macproject(mla,umac,phi,rho,dx,the_bc_tower, &
+  subroutine macproject(mla,uface,phi,rho,dx,the_bc_tower, &
                         divu_rhs,div_coeff_1d,div_coeff_1d_edge,div_coeff_cart_edge)
 
     use mac_hypre_module               , only : mac_hypre
@@ -64,7 +64,7 @@ contains
     use mg_eps_module, only: eps_mac, eps_mac_max, mac_level_factor
 
     type(ml_layout), intent(in   ) :: mla
-    type(multifab ), intent(inout) :: umac(:,:)
+    type(multifab ), intent(inout) :: uface(:,:)
     type(multifab ), intent(inout) :: phi(:)
     type(multifab ), intent(in   ) :: rho(:)
     real(dp_t)     , intent(in   ) :: dx(:,:)
@@ -125,25 +125,25 @@ contains
     if (verbose .eq. 1) then
        if (parallel_IOProcessor()) print *,''
        do n = 1,nlevs
-          umax = multifab_max(umac(n,1))
-          umin = multifab_min(umac(n,1))
+          umax = multifab_max(uface(n,1))
+          umin = multifab_min(uface(n,1))
           if (dm.eq.1) then
              if (parallel_IOProcessor()) then
                  write(6,1001) n, umax
                  write(6,1101) n, umin
              end if
           else if (dm.eq.2) then
-             vmax = multifab_max(umac(n,2))
-             vmin = multifab_min(umac(n,2))
+             vmax = multifab_max(uface(n,2))
+             vmin = multifab_min(uface(n,2))
              if (parallel_IOProcessor()) then
                  write(6,1002) n, umax, vmax
                  write(6,1102) n, umin, vmin
              end if
           else if (dm.eq.3) then
-             vmax = multifab_max(umac(n,2))
-             vmin = multifab_min(umac(n,2))
-             wmax = multifab_max(umac(n,3))
-             wmin = multifab_min(umac(n,3))
+             vmax = multifab_max(uface(n,2))
+             vmin = multifab_min(uface(n,2))
+             wmax = multifab_max(uface(n,3))
+             wmin = multifab_min(uface(n,3))
              if (parallel_IOProcessor()) then
                  write(6,1003) n, umax, vmax, wmax
                  write(6,1103) n, umin, vmin, wmin
@@ -175,9 +175,9 @@ contains
 
     write(*, *) 'CALLING DIVUMAC'
     if (use_rhs) then
-       call divumac(umac,rh,dx,mla%mba%rr,.true.,divu_rhs)
+       call divumac(uface,rh,dx,mla%mba%rr,.true.,divu_rhs)
     else
-       call divumac(umac,rh,dx,mla%mba%rr,.true.)
+       call divumac(uface,rh,dx,mla%mba%rr,.true.)
     end if
 
     ! first set beta = 1/rho
@@ -228,7 +228,7 @@ contains
                           rel_solver_eps,abs_solver_eps)
     endif
 
-    call mkumac(mla,umac,phi,beta,fine_flx,dx,the_bc_tower)
+    call mkumac(mla,uface,phi,beta,fine_flx,dx,the_bc_tower)
 
     ! divide out the beta_0
     !if (use_div_coeff_1d) then
@@ -249,11 +249,11 @@ contains
        ! fill ghost cells for two adjacent grids at the same level
        ! this includes periodic domain boundary ghost cells
       do i=1,dm
-          call multifab_fill_boundary(umac(nlevs,i))
+          call multifab_fill_boundary(uface(nlevs,i))
        enddo
 
        ! fill non-periodic domain boundary ghost cells
-       call multifab_physbc_edgevel(umac(nlevs,:),the_bc_tower%bc_tower_array(nlevs))
+       call multifab_physbc_edgevel(uface(nlevs,:),the_bc_tower%bc_tower_array(nlevs))
 
     else
 
@@ -261,14 +261,14 @@ contains
        do n=nlevs,2,-1
           ! set level n-1 data to be the average of the level n data covering it
           do i=1,dm
-             call ml_edge_restriction(umac(n-1,i),umac(n,i),mla%mba%rr(n-1,:),i)
+             call ml_edge_restriction(uface(n-1,i),uface(n,i),mla%mba%rr(n-1,:),i)
           enddo
        end do
 
        do n=2,nlevs
           ! fill level n ghost cells using interpolation from level n-1 data
           ! note that multifab_fill_boundary and multifab_physbc_edgevel are called.
-          call create_umac_grown(umac(n,:),umac(n-1,:), &
+          call create_umac_grown(uface(n,:),uface(n-1,:), &
                                  the_bc_tower%bc_tower_array(n-1), &
                                  the_bc_tower%bc_tower_array(n), &
                                  n.eq.nlevs)
@@ -281,25 +281,25 @@ contains
     write(*, *) 'AFTER MULTIGRID'
     if (verbose .eq. 1) then
        do n = 1,nlevs
-          umin = multifab_max(umac(n,1))
-          umax = multifab_min(umac(n,1))
+          umin = multifab_max(uface(n,1))
+          umax = multifab_min(uface(n,1))
           if (dm.eq.1) then
              if (parallel_IOProcessor()) then
                  write(6,1001) n, umax
                  write(6,1101) n, umin
              end if
           else if (dm.eq.2) then
-             vmin = multifab_max(umac(n,2))
-             vmax = multifab_min(umac(n,2))
+             vmin = multifab_max(uface(n,2))
+             vmax = multifab_min(uface(n,2))
              if (parallel_IOProcessor()) then
                  write(6,1002) n, umax, vmax
                  write(6,1102) n, umin, vmin
              end if
           else if (dm.eq.3) then
-             vmin = multifab_max(umac(n,2))
-             vmax = multifab_min(umac(n,2))
-             wmin = multifab_max(umac(n,3))
-             wmax = multifab_min(umac(n,3))
+             vmin = multifab_max(uface(n,2))
+             vmax = multifab_min(uface(n,2))
+             wmin = multifab_max(uface(n,3))
+             wmax = multifab_min(uface(n,3))
              if (parallel_IOProcessor()) then
                  write(6,1003) n, umax, vmax, wmax
                  write(6,1103) n, umin, vmin, wmin

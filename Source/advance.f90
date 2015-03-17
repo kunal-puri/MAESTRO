@@ -35,6 +35,7 @@ contains
                               dSdt,Source_old,Source_new,etarho_ec,etarho_cc, &
                               psi,sponge,hgrhs,tempbar_init,particles)
 
+    use vstar_module                , only : compute_vstar
     use bl_prof_module              , only : bl_prof_timer, build, destroy
     use      pre_advance_module     , only : advance_premac
     use velocity_advance_module     , only : velocity_advance
@@ -157,6 +158,8 @@ contains
     type(multifab) ::                umac(mla%nlevel,mla%dim)
     type(multifab) ::               sedge(mla%nlevel,mla%dim)
     type(multifab) ::               sflux(mla%nlevel,mla%dim)
+
+    type(multifab) ::               uface(mla%nlevel,mla%dim)
 
     real(kind=dp_t), allocatable ::        grav_cell_nph(:,:)
     real(kind=dp_t), allocatable ::        grav_cell_new(:,:)
@@ -323,14 +326,18 @@ contains
        write(6,*) '<<< STEP  3 : create MAC velocities>>> '
     end if
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! Construct the edge-centered or face velocities
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     do n=1,nlevs
        do comp=1,dm
-          call multifab_build_edge(umac(n,comp), mla%la(n),1,1,comp)
+          call multifab_build_edge(uface(n,comp), mla%la(n),1,1,comp)
        end do
     end do
     
-    call advance_premac(uold,sold,umac,gpi,normal,w0,w0mac,w0_force,w0_force_cart, &
-                        rho0_old,grav_cell_old,dx,dt,the_bc_tower%bc_tower_array,mla)
+    ! Compute the non-divergence free velocities
+    call compute_vstar(uold,sold,uface,gpi,normal,w0,w0mac,w0_force,w0_force_cart, &
+                       rho0_old,grav_cell_old,dx,dt,the_bc_tower%bc_tower_array,mla)
 
     if (dm .eq. 3) then
        do n=1,nlevs
@@ -342,7 +349,6 @@ contains
        call multifab_build(delta_gamma1_term(n), mla%la(n), 1, 0)
        call multifab_build(macrhs(n),            mla%la(n), 1, 0)
        call multifab_build(delta_chi(n),         mla%la(n), 1, 0)
-
        call setval(delta_gamma1_term(n), ZERO, all=.true.)
        call setval(delta_chi(n),         ZERO, all=.true.)
     end do
@@ -352,6 +358,7 @@ contains
 
     macproj_time_start = parallel_wtime()
 
+    ! Additional RHS for the Projection equation
     call make_macrhs(macrhs,rho0_old,Source_nph,delta_gamma1_term,Sbar,div_coeff_old,dx, &
                      gamma1bar_old,p0_old,delta_p_term,dt,delta_chi,.true.)
 
@@ -361,14 +368,15 @@ contains
        call destroy(delta_p_term(n))
     end do
 
+    ! Phi is the variable used in the velocity projection step
     do n=1,nlevs
        call multifab_build(macphi(n), mla%la(n), 1, 1)
        call setval(macphi(n), ZERO, all=.true.)
     end do
 
-    ! MAC projection !
+    ! Velocity Projection
     call cell_to_edge(div_coeff_old,div_coeff_edge)
-    call macproject(mla,umac,macphi,sold,dx,the_bc_tower, &
+    call macproject(mla,uface,macphi,sold,dx,the_bc_tower, &
                     macrhs,div_coeff_1d=div_coeff_old,div_coeff_1d_edge=div_coeff_edge)
 
     do n=1,nlevs
@@ -433,7 +441,7 @@ contains
        do comp = 1,dm
           call destroy(sedge(n,comp))
           call destroy(sflux(n,comp))
-          call destroy(umac(n,comp))
+          call destroy(uface(n,comp))
        end do
        call destroy(scal_force(n))
     end do

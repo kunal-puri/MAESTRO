@@ -89,4 +89,5 @@ f90sources +=  hg_hypre.f90
 else
 f90sources += mac_hypre_stub.f90
 f90sources +=  hg_hypre_stub.f90
+f90sources += compute_vstar.f90	   
 endif
