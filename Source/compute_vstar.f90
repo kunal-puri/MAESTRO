@@ -24,13 +24,14 @@ contains
 
     use bl_prof_module, only: bl_prof_timer, build, destroy
     use velpred_module, only: velpred
-    use mkutrans_module, only: mkutrans
-    use mk_vel_force_module, only: mk_vel_force
     use addw0_module, only: addw0
     use bl_constants_module, only: ONE
     use variables, only: rho_comp
     use fill_3d_module, only: put_1d_array_on_cart
     use probin_module, only: ppm_trace_forces
+
+    use compute_rhs_module                , only: momentum_rhs
+    use interpolate_face_velocities_module, only: interpolate_face_velocities
 
     type(multifab) , intent(in   ) :: uold(:)
     type(multifab) , intent(in   ) :: sold(:)
@@ -56,19 +57,14 @@ contains
 
     type(bl_prof_timer), save :: bpt
 
-    call build(bpt, "advance_premac")
+    call build(bpt, "compute_vstar")
 
     dm = mla%dim
     nlevs = mla%nlevel
 
     do n=1,nlevs
-       if (ppm_trace_forces == 0) then
-          call multifab_build(force(n),get_layout(uold(n)),dm,1)
-       else
-          ! tracing needs more ghost cells
-          call multifab_build(force(n),get_layout(uold(n)),dm,uold(n)%ng)
-       endif
-
+       ! tracing needs more ghost cells
+       call multifab_build(force(n),get_layout(uold(n)),dm,uold(n)%ng)
        call multifab_build(ufull(n),get_layout(uold(n)),dm,nghost(uold(n)))
     end do
 
@@ -88,32 +84,18 @@ contains
        end do
     end do
 
-    call mkutrans(uold,ufull,utrans,w0,w0mac,dx,dt,the_bc_level,mla)
+    call interpolate_face_velocities(uold, utrans, dx, dt, the_bc_level, mla)
 
     !*************************************************************
-    !     Create force, initializing with pressure gradient and buoyancy terms, and
-    !     the utilde . gradw0 force
+    !     Create RHS for the Momentum equation
     !*************************************************************
-    is_final_update = .false.
-    call mk_vel_force(force,is_final_update, &
-                      uold,utrans,w0,w0mac,gpi,sold,rho_comp,normal, &
-                      rho0(:,:),grav_cell,dx,w0_force,w0_force_cart_vec, &
-                      the_bc_level,mla,.true.)
-
-
-    !*************************************************************
-    !     Add w0 to trans velocities.
-    !*************************************************************
-    
-    !if (dm > 1) then
-    !   call addw0(utrans,the_bc_level,mla,w0,w0mac,mult=ONE)
-    !end if
+    call momentum_rhs(force, uold, utrans, sold, rho_comp, dx, the_bc_level, mla)
 
     !*************************************************************
     !     Create the edge states to be used for the MAC velocity 
     !*************************************************************
-
-    call velpred(uold,ufull,uface,utrans,force,w0,w0mac,dx,dt,the_bc_level,mla)
+    call velpred(uold,uface,utrans,force,dx,dt,the_bc_level,mla)
+    !call velpred(uold,ufull,uface,utrans,force,w0,w0mac,dx,dt,the_bc_level,mla)
 
     do n = 1,nlevs
        call destroy(force(n))

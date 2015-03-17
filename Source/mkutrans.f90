@@ -109,9 +109,9 @@ contains
        ! fill ghost cells for two adjacent grids at the same level
        ! this includes periodic domain boundary ghost cells
       do i=1,dm
-          call multifab_fill_boundary(utrans(nlevs,i))
-       enddo
-
+         call multifab_fill_boundary(utrans(nlevs,i))
+      enddo
+       
        ! fill non-periodic domain boundary ghost cells
        call multifab_physbc_edgevel(utrans(nlevs,:),the_bc_level(nlevs))
 
