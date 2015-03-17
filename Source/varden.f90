@@ -212,9 +212,6 @@ subroutine varden()
      endif
      
   else if (test_set /= '') then
-     
-     if(use_particles) call build(particles)
-
      call initialize_with_fixed_grids(mla,dt,pmask,dx,uold,sold,gpi,pi,dSdt, &
                                       Source_old,Source_new, &
                                       rho_omegadot2,rho_Hnuc2,rho_Hext,thermal2, &
@@ -225,9 +222,6 @@ subroutine varden()
                                       etarho_ec,etarho_cc,psi,tempbar,tempbar_init,grav_cell)
 
   else
-
-     if (use_particles) call build(particles)
-
      call initialize_with_adaptive_grids(mla,dt,pmask,dx,uold,sold,gpi,pi,dSdt, &
                                          Source_old,Source_new, &
                                          rho_omegadot2,rho_Hnuc2,rho_Hext,thermal2, &
@@ -238,8 +232,6 @@ subroutine varden()
                                          etarho_ec,etarho_cc,psi,tempbar,tempbar_init,grav_cell)
 
   end if
-
-
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! error checking
@@ -268,16 +260,6 @@ subroutine varden()
         call bl_error('zones must be square')
      end if
   end if
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! warn the user if we are burning and heating - this might not be what we want
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  if (do_burning .and. do_heating .and. parallel_IOProcessor()) then
-     print *, 'WARNING: attempting to apply heating and a reaction network'
-     print *, '         make sure this is what you want to do, otherwise check'
-     print *, '         the do_heating and do_burning flag settings.'
-  endif
-    
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! print processor and grid info
@@ -357,17 +339,7 @@ subroutine varden()
   ! Create normal now that we have defined center and dx
   call make_normal(normal,dx)
 
-  if (do_sponge) then
-     if (spherical .eq. 0) then
-        call init_sponge(rho0_old(1,:),dx(nlevs,:),prob_lo(dm))
-     else
-        call init_sponge(rho0_old(1,:),dx(nlevs,:),ZERO)
-     end if
-  end if
-
   call make_grav_cell(grav_cell,rho0_old)
-
-
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Print out some diagnostics and warnings about cutoff / sponge parameter
@@ -397,7 +369,7 @@ subroutine varden()
 ! Initialization
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if (restart < 0) then
+  starting_mode: if (restart < 0) then
 
      !----------------------------------------------------------------------
      ! Do an initial projection with omegadot = 0 and rho_Hext = 0
@@ -410,7 +382,6 @@ subroutine varden()
      end do
 
      call make_gamma(mla,gamma1,sold,p0_old,dx)
-
      call average(mla,gamma1,gamma1bar,dx,1)
      
      do n=1,nlevs
@@ -418,11 +389,6 @@ subroutine varden()
      end do
 
      call make_div_coeff(div_coeff_old,rho0_old,p0_old,gamma1bar,grav_cell)
-
-     if(do_initial_projection) then
-        call initial_proj(uold,sold,pi,gpi,Source_old,normal,hgrhs,thermal2, &
-                          div_coeff_old,p0_old,gamma1bar,dx,the_bc_tower,mla)
-     end if
 
      !----------------------------------------------------------------------
      ! Compute the initial time step
@@ -464,16 +430,7 @@ subroutine varden()
         print *, ' '
      end if
 
-     do istep_divu_iter=1,init_divu_iter
-
-        call divu_iter(istep_divu_iter,uold,sold,pi,gpi,thermal2, &
-                       Source_old,normal,hgrhs,dSdt,div_coeff_old,rho0_old,p0_old, &
-                       gamma1bar,tempbar_init,w0,grav_cell,dx,dt,the_bc_tower,mla)
-
-     end do
-
   else if (restart >= 0) then
-
      if ( plot_int > 0 ) then
 
         !------------------------------------------------------------------------
@@ -511,8 +468,7 @@ subroutine varden()
         call write_job_info(plot_file_name, mla%mba, the_bc_tower, write_pf_time)
 
      end if
-
-  end if
+  end if starting_mode
 
   if (restart < 0) then 
      istep = 0
@@ -528,78 +484,10 @@ subroutine varden()
 
   if (restart < 0) then
 
-     !------------------------------------------------------------------------
-     ! Begin the initial pressure iterations
-     !------------------------------------------------------------------------
-
      ! initialize Source_new to the Source_old the first time through
      do n = 1,nlevs
         call multifab_copy_c(Source_new(n),1,Source_old(n),1,1)
      end do
-
-     if (do_sponge) then
-        call make_sponge(sponge,dx,dt,mla)
-     end if
-
-     if (init_iter > 0) then
-        if (parallel_IOProcessor() .and. verbose .ge. 1) then
-           print *,''
-           write (*,111)
-           print*,'DOING',init_iter,'INITIAL PRESSURE ITERATIONS'
-           write (*,111)
-           print*,''
-        end if
-
-        !----------------------------------------------------------------------
-        ! main initial iteration loop
-        !----------------------------------------------------------------------
-
-        do istep_init_iter = 1,init_iter
-
-           ! Advance a single timestep at all levels.
-           init_mode = .true.
-
-           gamma1bar_hold = gamma1bar
-
-           runtime1 = parallel_wtime()
-
-           call advance_timestep(init_mode,mla,uold,sold,unew,snew,gpi,pi,normal, &
-                                 rho0_old,rhoh0_old,rho0_new,rhoh0_new,p0_old,p0_new, &
-                                 tempbar,gamma1bar,w0,rho_omegadot2,rho_Hnuc2, &
-                                 rho_Hext,thermal2, &
-                                 div_coeff_old,div_coeff_new,grav_cell,dx,dt,dtold, &
-                                 the_bc_tower,dSdt,Source_old,Source_new,etarho_ec, &
-                                 etarho_cc,psi,sponge,hgrhs,tempbar_init,particles)
-
-           runtime2 = parallel_wtime() - runtime1
-           call parallel_reduce(runtime1, runtime2, MPI_MAX, proc=parallel_IOProcessorNode())
-           if (parallel_IOProcessor()) then
-              print*,'Time to advance timestep: ',runtime1,' seconds'
-           end if
-           
-           call print_and_reset_fab_byte_spread()
-           
-           gamma1bar = gamma1bar_hold
-
-        end do ! end do istep_init_iter = 1,init_iter
-
-     end if ! end if (init_iter > 0)
-
-
-     ! initialize any passively-advected particles
-     if (use_particles) then
-        call init_particles(particles,sold,rho0_old,rhoh0_old,p0_old,tempbar, &
-                            mla,dx,1)
-
-        numparticles = particle_global_numparticles(particles)
-
-        if ( parallel_IOProcessor()) then
-           print *,""
-           print *,"number of particles initialized = ", numparticles
-           print *,""
-        endif
-     endif
-
 
      if ( chk_int > 0 ) then
 
@@ -765,134 +653,56 @@ subroutine varden()
 1013 format('... level / min : old vels   ',i2,2x,e17.10,2x,e17.10,2x,e17.10)
 
         !---------------------------------------------------------------------
-        ! regrid
+        ! BEGIN REGRIDDING
         !---------------------------------------------------------------------
-        if (max_levs > 1 .and. regrid_int > 0 .and. (mod(istep-1,regrid_int) .eq. 0)) then
+        regridding: if (max_levs > 1 .and. regrid_int > 0 .and. (mod(istep-1,regrid_int) .eq. 0)) then
 
            ! Regrid psi, etarho_cc, etarho_ec, and w0.
            ! We do not regrid these in spherical since the base state array only
            ! contains 1 level of refinement.
            ! We do not regrid these if evolve_base_state=F since they are
            ! identically zero, set this way in initialize.
-           if (spherical .eq. 0) then
-              if (evolve_base_state) then
+           regridding_base_state: if (spherical .eq. 0) then
+              ! evolve_base_state == F and spherical == 0
               
-                 ! copy the coarsest level only, interpolate to all
-                 ! the other levels and then copy the valid data from
-                 ! the old arrays onto the new this must be done
-                 ! before we call init_multilevel or else we lose
-                 ! track of where the old valid data was
+              ! Here we want to fill in the rho0 array so there is
+              ! valid data in any new grid locations that are created
+              ! during the regrid.
               
-                 ! copy the coarsest level of the real arrays into the
-                 ! temp arrays
-                 psi_temp(1,:)        = psi(1,:)
-                 etarho_cc_temp(1,:)  = etarho_cc(1,:)
-                 etarho_ec_temp(1,:)  = etarho_ec(1,:)
-                 w0_temp(1,:)         = w0(1,:)
-
-                 ! piecewise linear interpolation to fill the cc temp arrays
-                 do n=2,max_levs
-                    do r=0,nr(n)-1
-                       if (r .eq. 0 .or. r .eq. nr(n)-1) then
-                          psi_temp(n,r) = psi_temp(n-1,r/2)
-                          etarho_cc_temp(n,r)  = etarho_cc_temp(n-1,r/2)
-                       else
-                          if (mod(r,2) .eq. 0) then
-                             psi_temp(n,r) = 0.75d0*psi_temp(n-1,r/2) &
-                                  + 0.25d0*psi_temp(n-1,r/2-1)
-                             etarho_cc_temp(n,r) = 0.75d0*etarho_cc_temp(n-1,r/2) &
-                                  + 0.25d0*etarho_cc_temp(n-1,r/2-1)
-                          else
-                             psi_temp(n,r) = 0.75d0*psi_temp(n-1,r/2) &
-                                  + 0.25d0*psi_temp(n-1,r/2+1)
-                             etarho_cc_temp(n,r) = 0.75d0*etarho_cc_temp(n-1,r/2) &
-                                  + 0.25d0*etarho_cc_temp(n-1,r/2+1)
-                          end if
-                       end if
-                    end do
-                 end do
-                 
-                 ! piecewise linear interpolation to fill the edge-centered temp arrays
-                 do n=2,max_levs
-                    do r=0,nr(n)
+              ! copy the coarsest level of the real arrays into the
+              ! temp arrays
+              rho0_temp(1,:) = rho0_old(1,:)
+              
+              ! piecewise linear interpolation to fill the cc temp arrays
+              do n=2,max_levs
+                 do r=0,nr(n)-1
+                    if (r .eq. 0 .or. r .eq. nr(n)-1) then
+                       rho0_temp(n,r) = rho0_temp(n-1,r/2)
+                    else
                        if (mod(r,2) .eq. 0) then
-                          etarho_ec_temp(n,r) = etarho_ec_temp(n-1,r/2)
-                          w0_temp(n,r) = w0_temp(n-1,r/2)
+                          rho0_temp(n,r) = 0.75d0*rho0_temp(n-1,r/2) &
+                               + 0.25d0*rho0_temp(n-1,r/2-1)
                        else
-                          etarho_ec_temp(n,r) = &
-                               HALF*(etarho_ec_temp(n-1,r/2)+etarho_ec_temp(n-1,r/2+1))
-                          w0_temp(n,r) = HALF*(w0_temp(n-1,r/2)+w0_temp(n-1,r/2+1))
+                          rho0_temp(n,r) = 0.75d0*rho0_temp(n-1,r/2) &
+                               + 0.25d0*rho0_temp(n-1,r/2+1)
                        end if
+                    end if
+                 end do
+              end do
+              
+              ! copy valid data into temp -- this way we haven't
+              ! overwritten any of the original information.
+              do n=2,nlevs_radial
+                 do i=1,numdisjointchunks(n)
+                    do r=r_start_coord(n,i),r_end_coord(n,i)
+                       rho0_temp(n,r) = rho0_old(n,r)
                     end do
                  end do
-                 
-                 ! copy valid data into temp
-                 do n=2,nlevs_radial
-                    do i=1,numdisjointchunks(n)
-                       do r=r_start_coord(n,i),r_end_coord(n,i)
-                          psi_temp(n,r)        = psi(n,r)
-                          etarho_cc_temp(n,r)  = etarho_cc(n,r)
-                       end do
-                    end do
-                 end do
-                 do n=2,nlevs_radial
-                    do i=1,numdisjointchunks(n)
-                       do r=r_start_coord(n,i),r_end_coord(n,i)+1
-                          etarho_ec_temp(n,r) = etarho_ec(n,r)
-                          w0_temp(n,r)        = w0(n,r)
-                       end do
-                    end do
-                 end do
-
-                 ! copy temp array back into the real thing
-                 psi        = psi_temp
-                 etarho_cc  = etarho_cc_temp
-                 etarho_ec  = etarho_ec_temp
-                 w0         = w0_temp
-
-              else 
-                 ! evolve_base_state == F and spherical == 0
-
-                 ! Here we want to fill in the rho0 array so there is
-                 ! valid data in any new grid locations that are created
-                 ! during the regrid.
-
-                 ! copy the coarsest level of the real arrays into the
-                 ! temp arrays
-                 rho0_temp(1,:) = rho0_old(1,:)
-
-                 ! piecewise linear interpolation to fill the cc temp arrays
-                 do n=2,max_levs
-                    do r=0,nr(n)-1
-                       if (r .eq. 0 .or. r .eq. nr(n)-1) then
-                          rho0_temp(n,r) = rho0_temp(n-1,r/2)
-                       else
-                          if (mod(r,2) .eq. 0) then
-                             rho0_temp(n,r) = 0.75d0*rho0_temp(n-1,r/2) &
-                                  + 0.25d0*rho0_temp(n-1,r/2-1)
-                          else
-                             rho0_temp(n,r) = 0.75d0*rho0_temp(n-1,r/2) &
-                                  + 0.25d0*rho0_temp(n-1,r/2+1)
-                          end if
-                       end if
-                    end do
-                 end do
-                 
-                 ! copy valid data into temp -- this way we haven't
-                 ! overwritten any of the original information.
-                 do n=2,nlevs_radial
-                    do i=1,numdisjointchunks(n)
-                       do r=r_start_coord(n,i),r_end_coord(n,i)
-                          rho0_temp(n,r) = rho0_old(n,r)
-                       end do
-                    end do
-                 end do
-
-                 ! don't copy rho0_temp back into the rho0 array just
-                 ! yet.  Wait until we regrid
-
-              endif
-
+              end do
+              
+              ! don't copy rho0_temp back into the rho0 array just
+              ! yet.  Wait until we regrid
+              
               ! regardless of evolve_base_state, if new grids were
               ! created, we need to initialize tempbar_init there, in
               ! case drive_initial_convection = T
@@ -918,7 +728,6 @@ subroutine varden()
                  end do
               end do
 
-
               ! copy valid data into temp
               do n=2,nlevs_radial
                  do i=1,numdisjointchunks(n)
@@ -931,7 +740,7 @@ subroutine varden()
               ! copy temp array back into the real thing
               tempbar_init = tempbar_init_temp
 
-           end if ! end regridding of base state
+           end if regridding_base_state ! end regridding of base state
            
            ! we can pass as an auxillary tagging quantity either the
            ! energy generate rate (per volume) or tpert
@@ -973,10 +782,8 @@ subroutine varden()
            end do
 
            ! create new grids and fill in data on those grids
-
            call regrid(istep,mla,uold,sold,gpi,pi,dSdt,Source_old,dx,the_bc_tower, &
                        rho0_old,rhoh0_old,.false.,tag_mf)
-
 
            ! nlevs is local so we need to reset it
            nlevs = mla%nlevel
@@ -1011,39 +818,29 @@ subroutine varden()
            ! Create normal now that we have defined center and dx
            call make_normal(normal,dx)
 
-           if (evolve_base_state) then
-              ! force rho0 to be the average of rho
-              call average(mla,sold,rho0_old,dx,rho_comp)
+           if (spherical .eq. 0) then
+              ! copy the old base state density with piecewise linear
+              ! interpolated data in the new positions -- this is 
+              ! only necessary for evolve_base_state = F and
+              ! spherical = 0.
+              rho0_old = rho0_temp
 
-           else
-
-              if (spherical .eq. 0) then
-                 ! copy the old base state density with piecewise linear
-                 ! interpolated data in the new positions -- this is 
-                 ! only necessary for evolve_base_state = F and
-                 ! spherical = 0.
-                 rho0_old = rho0_temp
-
-                 ! zero out any data where there is no corresponding full
-                 ! state array
-                 do n=2,nlevs_radial
-                    do i=1,numdisjointchunks(n)
-                       if (i .eq. numdisjointchunks(n)) then
-                          do r=r_end_coord(n,i)+1,nr(n)-1
-                             rho0_old(n,r) = 0.d0
-                          end do
-                       else
-                          do r=r_end_coord(n,i)+1,r_start_coord(n,i+1)-1
-                             rho0_old(n,r) = 0.d0
-                          end do
-                       end if
-                    end do
+              ! zero out any data where there is no corresponding full
+              ! state array
+              do n=2,nlevs_radial
+                 do i=1,numdisjointchunks(n)
+                    if (i .eq. numdisjointchunks(n)) then
+                       do r=r_end_coord(n,i)+1,nr(n)-1
+                          rho0_old(n,r) = 0.d0
+                       end do
+                    else
+                       do r=r_end_coord(n,i)+1,r_start_coord(n,i+1)-1
+                          rho0_old(n,r) = 0.d0
+                       end do
+                    end if
                  end do
-
-              endif
-
+              end do
            endif
-
 
            ! recompute p0 based on the new rho0 
            call compute_cutoff_coords(rho0_old)
@@ -1079,15 +876,16 @@ subroutine varden()
               call destroy(gamma1(n))
            end do
 
-
            ! div_coeff_old needs to be recomputed
            call make_div_coeff(div_coeff_old,rho0_old,p0_old,gamma1bar,grav_cell)
-
 
            ! redistribute the particles to their new processor locations
            if (use_particles) call redistribute(particles,mla,dx,prob_lo)
 
-        end if ! end regridding
+        end if regridding ! end regridding
+        !---------------------------------------------------------------------
+        ! END REGRIDDING
+        !---------------------------------------------------------------------
 
         !---------------------------------------------------------------------
         ! get the new timestep
@@ -1155,15 +953,8 @@ subroutine varden()
         ! Advance a single timestep at all levels.
         !---------------------------------------------------------------------
         init_mode = .false.
-        if (do_sponge) then
-           if (spherical .eq. 0) then
-              call init_sponge(rho0_old(1,:),dx(nlevs,:),prob_lo(dm))
-           else
-              call init_sponge(rho0_old(1,:),dx(nlevs,:),ZERO)
-           end if
-           call make_sponge(sponge,dx,dt,mla)
-        end if
         runtime1 = parallel_wtime()
+
         call advance_timestep(init_mode,mla,uold,sold,unew,snew,gpi,pi,normal,rho0_old, &
                               rhoh0_old,rho0_new,rhoh0_new,p0_old,p0_new,tempbar,gamma1bar, &
                               w0,rho_omegadot2,rho_Hnuc2,rho_Hext,thermal2, &
@@ -1286,18 +1077,6 @@ subroutine varden()
         ! output
         !---------------------------------------------------------------------
 
-        ! output any particle information
-        if (use_particles) then
-           if (store_particle_vels) then
-              call timestamp(particles, 'timestamp', sold, index_partdata, &
-                             names_partdata, time, uold)
-           else
-              call timestamp(particles, 'timestamp', sold, index_partdata, &
-                             names_partdata, time)
-           endif
-        endif
-
-
         ! if the file .dump_checkpoint exists in our output directory, then
         ! automatically dump a plotfile
         inquire(file=".dump_checkpoint", exist=dump_checkpoint)
@@ -1392,14 +1171,12 @@ subroutine varden()
            end if
         end if
 
-
         ! if the file .abort_maestro exists in our output directory, then
         ! automatically end the run.  This has the effect of also dumping
         ! a final checkpoint file.
         inquire(file=".abort_maestro", exist=abort_maestro)
         if (abort_maestro) exit
 
-        
         ! have we reached the stop time?
         if (stop_time >= 0.d0) then
            if (time >= stop_time) goto 999

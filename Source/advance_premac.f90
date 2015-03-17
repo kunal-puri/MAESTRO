@@ -89,8 +89,7 @@ contains
     end do
 
     call mkutrans(uold,ufull,utrans,w0,w0mac,dx,dt,the_bc_level,mla)
-    write(*, *) 'AFTER MKUTRANS', max_val(utrans(1,1)), min_val(utrans(1,1)), &
-         max_val(utrans(1,2)), min_val(utrans(1,2))
+
     !*************************************************************
     !     Create force, initializing with pressure gradient and buoyancy terms, and
     !     the utilde . gradw0 force
