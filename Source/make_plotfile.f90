@@ -39,118 +39,14 @@ contains
     end if
     plot_names(icomp_rho)  = "density"
 
-    if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) then
-       plot_names(icomp_rhoh) = "rhoh"
-       plot_names(icomp_h)    = "h"
-    end if
-
-    if (plot_spec) then
-       do comp = 1, nspec
-          plot_names(icomp_spec+comp-1) = "X(" // trim(short_spec_names(comp)) // ")"
-       end do
-    end if
-
-    if (plot_trac) then
-       do comp = 1, ntrac
-          plot_names(icomp_trac+comp-1) = "tracer"
-       end do
-    end if
-
-    if (plot_base) then
-       plot_names(icomp_w0)   = "w0_x"
-       if (dm_in > 1) plot_names(icomp_w0+1) = "w0_y"
-       if (dm_in > 2) plot_names(icomp_w0+2) = "w0_z"
-       plot_names(icomp_divw0) = "divw0"
-       plot_names(icomp_rho0)  = "rho0"
-       plot_names(icomp_rhoh0) = "rhoh0"
-       plot_names(icomp_h0)    = "h0"
-       plot_names(icomp_p0)    = "p0"
-    end if
-
-    if (spherical .eq. 1) then
-       plot_names(icomp_velr) = "radial_velocity"
-       plot_names(icomp_velc) = "circum_velocity"
-    endif
-
     plot_names(icomp_magvel)      = "magvel"
     plot_names(icomp_mom)         = "momentum"
     plot_names(icomp_vort)        = "vort"
     plot_names(icomp_src)         = "S"
-    plot_names(icomp_rhopert)     = "rhopert"
-    if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) then
-       plot_names(icomp_rhohpert)    = "rhohpert"
-    endif
-    plot_names(icomp_tfromp)      = "tfromp"
-    if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) then
-       plot_names(icomp_tfromH)      = "tfromh"
-       plot_names(icomp_dT)          = "deltaT"
-       plot_names(icomp_dp)          = "deltap"
-    endif
-    plot_names(icomp_tpert)       = "tpert"
-    plot_names(icomp_machno)      = "Machnumber"
-    if (plot_cs) then
-       plot_names(icomp_cs)          = "soundspeed"
-    end if
-    plot_names(icomp_dg)          = "deltagamma"
-    plot_names(icomp_entropy)     = "entropy"
-    plot_names(icomp_entropypert) = "entropypert"
-    if (plot_sponge_fdamp) then
-       plot_names(icomp_sponge)      = "sponge_fdamp"
-    else
-       plot_names(icomp_sponge)      = "sponge"
-    end if
-
-    plot_names(icomp_pi)          = "pi"
-    if (plot_gpi) then
-       plot_names(icomp_gpi)         = "gpi_x"
-       if (dm_in > 1) plot_names(icomp_gpi+1) = "gpi_y"
-       if (dm_in > 2) plot_names(icomp_gpi+2) = "gpi_z"
-    endif
-    if (plot_base) then
-       plot_names(icomp_pioverp0)    = "pioverp0"
-       plot_names(icomp_p0pluspi)    = "p0pluspi"
-    end if
-
-    if (plot_omegadot) then
-       do comp = 1, nspec
-          plot_names(icomp_omegadot+comp-1) = &
-               "omegadot(" // trim(short_spec_names(comp)) // ")"
-       end do
-    end if
-
-    if (plot_Hnuc) then
-       plot_names(icomp_enuc) = "enucdot"
-    end if
-
-    if (plot_Hext) then
-       plot_names(icomp_Hext) = "Hext"
-    endif
-
-    if (plot_eta) then
-       plot_names(icomp_eta) = "eta_rho"
-    endif
-
-    if (use_thermal_diffusion) then
-       plot_names(icomp_thermal) = "thermal"
-       plot_names(icomp_conductivity) = "conductivity"
-    endif
-
-    if (plot_ad_excess) then
-       plot_names(icomp_ad_excess) = "ad_excess"
-    endif
-
-    if (use_particles) then
-       plot_names(icomp_part) = "particle_count"
-    endif
 
     if (plot_processors) then
        plot_names(icomp_proc) = "processor_number"
     endif
-
-    if (plot_pidivu) then
-       plot_names(icomp_pidivu) = "pi_divu"
-    endif
-
 
   end subroutine get_plot_names
 
@@ -253,207 +149,191 @@ contains
        ! VELOCITY 
        call multifab_copy_c(plotdata(n),icomp_vel,u(n),1,dm)
 
-       ! DENSITY AND (RHO H) 
+       ! DENSITY
        call multifab_copy_c(plotdata(n),icomp_rho,s(n),rho_comp,1)
-       if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) then
-          call multifab_copy_c(plotdata(n),icomp_rhoh,s(n),rhoh_comp,1)
-          call multifab_copy_c(plotdata(n),icomp_h,   s(n),rhoh_comp,1)
-          call multifab_div_div_c(plotdata(n),icomp_h,s(n),rho_comp,1)
-       end if
 
+       ! ! RHOPERT and RHOHPERT
+       ! if (spherical .eq. 1) then
+       !    call make_rhopert( plotdata(n),icomp_rhopert, s(n), rho0(1,:),dx(n,:))
 
-       ! RHOPERT and RHOHPERT
-       if (spherical .eq. 1) then
-          call make_rhopert( plotdata(n),icomp_rhopert, s(n), rho0(1,:),dx(n,:))
+       !    if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &          
+       !         call make_rhohpert(plotdata(n),icomp_rhohpert,s(n),rhoh0(1,:),dx(n,:))
+       ! else
+       !    call make_rhopert( plotdata(n),icomp_rhopert, s(n), rho0(n,:),dx(n,:))
 
-          if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &          
-               call make_rhohpert(plotdata(n),icomp_rhohpert,s(n),rhoh0(1,:),dx(n,:))
-       else
-          call make_rhopert( plotdata(n),icomp_rhopert, s(n), rho0(n,:),dx(n,:))
-
-          if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &
-               call make_rhohpert(plotdata(n),icomp_rhohpert,s(n),rhoh0(n,:),dx(n,:))
-       endif
-
-
-       if (plot_spec) then
-          
-          ! SPECIES
-          call multifab_copy_c(plotdata(n),icomp_spec,s(n),spec_comp,nspec)
-          do comp=1,nspec
-             call multifab_div_div_c(plotdata(n),icomp_spec+comp-1,s(n),rho_comp,1)
-          end do
-
-       endif
-
-       if (plot_omegadot) then
-
-          ! OMEGADOT
-          call multifab_copy_c(plotdata(n),icomp_omegadot,rho_omegadot(n),1,nspec)
-          do comp=1,nspec
-             call multifab_div_div_c(plotdata(n),icomp_omegadot+comp-1,s(n),rho_comp,1)
-          end do
-
-       end if
-
-       if (plot_Hnuc) then
-
-          ! ENUCDOT
-          call multifab_copy_c(plotdata(n),icomp_enuc,rho_Hnuc(n),1)
-          call multifab_div_div_c(plotdata(n),icomp_enuc,s(n),rho_comp,1)
-         
-       end if
-
-       if (plot_Hext) then
-          call multifab_copy_c(plotdata(n),icomp_Hext,rho_Hext(n),1)
-          call multifab_div_div_c(plotdata(n),icomp_Hext,s(n),rho_comp,1)
-       end if
-
-       ! THERMAL = del dot kappa grad T
-       if (use_thermal_diffusion) then
-          call multifab_copy_c(plotdata(n),icomp_thermal,thermal(n),1)
-       endif
-
-       ! TRACER
-       if (plot_trac .and. ntrac .ge. 1) then
-          call multifab_copy_c(plotdata(n),icomp_trac,s(n),trac_comp,ntrac)
-       end if
-
+       !    if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &
+       !         call make_rhohpert(plotdata(n),icomp_rhohpert,s(n),rhoh0(n,:),dx(n,:))
+       ! endif
     end do
+    !    if (plot_spec) then
+          
+    !       ! SPECIES
+    !       call multifab_copy_c(plotdata(n),icomp_spec,s(n),spec_comp,nspec)
+    !       do comp=1,nspec
+    !          call multifab_div_div_c(plotdata(n),icomp_spec+comp-1,s(n),rho_comp,1)
+    !       end do
 
-    if (spherical .eq. 1) then
+    !    endif
 
-       do n=1,nlevs
+    !    if (plot_omegadot) then
 
-          do comp=1,dm
-             ! w0mac will contain an edge-centered w0 on a Cartesian grid,
-             ! for use in computing divergences.
-             call multifab_build_edge(w0mac(n,comp), mla%la(n),1,1,comp)
-             call setval(w0mac(n,comp), ZERO, all=.true.)
-          enddo
+    !       ! OMEGADOT
+    !       call multifab_copy_c(plotdata(n),icomp_omegadot,rho_omegadot(n),1,nspec)
+    !       do comp=1,nspec
+    !          call multifab_div_div_c(plotdata(n),icomp_omegadot+comp-1,s(n),rho_comp,1)
+    !       end do
 
-          ! w0r_cart is w0 but onto a Cartesian grid in cell-centered as
-          ! a scalar.  Since w0 is the radial expansion velocity, w0r_cart
-          ! is the radial w0 in a zone
-          call multifab_build(w0r_cart(n), mla%la(n),1,0)
-          call setval(w0r_cart(n), ZERO, all=.true.)
+    !    end if
 
-       end do
+    !    if (plot_Hnuc) then
 
-       if (evolve_base_state) then
-          ! put w0 on Cartesian edges as a vector
-          call make_w0mac(mla,w0,w0mac,dx,the_bc_tower%bc_tower_array)
+    !       ! ENUCDOT
+    !       call multifab_copy_c(plotdata(n),icomp_enuc,rho_Hnuc(n),1)
+    !       call multifab_div_div_c(plotdata(n),icomp_enuc,s(n),rho_comp,1)
+         
+    !    end if
 
-          ! put w0 in Cartesian cell-centers as a scalar (the radial expansion velocity)
-          call put_1d_array_on_cart(w0,w0r_cart,1,.true.,.false.,dx, &
-                                    the_bc_tower%bc_tower_array,mla)
-       end if
+    !    if (plot_Hext) then
+    !       call multifab_copy_c(plotdata(n),icomp_Hext,rho_Hext(n),1)
+    !       call multifab_div_div_c(plotdata(n),icomp_Hext,s(n),rho_comp,1)
+    !    end if
 
-    end if
+    !    ! THERMAL = del dot kappa grad T
+    !    if (use_thermal_diffusion) then
+    !       call multifab_copy_c(plotdata(n),icomp_thermal,thermal(n),1)
+    !    endif
 
-    if (plot_base) then
+    !    ! TRACER
+    !    if (plot_trac .and. ntrac .ge. 1) then
+    !       call multifab_copy_c(plotdata(n),icomp_trac,s(n),trac_comp,ntrac)
+    !    end if
 
-       ! w0
-       if (evolve_base_state) then
-          call put_1d_array_on_cart(w0,tempfab,1,.true.,.true.,dx, &
-                                    the_bc_tower%bc_tower_array,mla)
-       else
-          do n=1,nlevs
-             call setval(tempfab(n), ZERO, all=.true.)
-          end do
-       end if
+    ! end do
 
-       do n=1,nlevs
-          call multifab_copy_c(plotdata(n),icomp_w0,tempfab(n),1,dm)
-       end do
+    ! if (spherical .eq. 1) then
 
-       ! divw0
-       do n=1,nlevs
-          if (spherical .eq. 1) then
-             n_1d = 1
-          else
-             n_1d = n
-          end if
-          call make_divw0(plotdata(n),icomp_divw0,w0(n_1d,:),w0mac(n,:),dx(n,:))
-       end do
+    !    do n=1,nlevs
 
-       ! rho0
-       call put_1d_array_on_cart(rho0,tempfab,dm+rho_comp,.false.,.false.,dx, &
-                                 the_bc_tower%bc_tower_array,mla)
+    !       do comp=1,dm
+    !          ! w0mac will contain an edge-centered w0 on a Cartesian grid,
+    !          ! for use in computing divergences.
+    !          call multifab_build_edge(w0mac(n,comp), mla%la(n),1,1,comp)
+    !          call setval(w0mac(n,comp), ZERO, all=.true.)
+    !       enddo
 
-       do n=1,nlevs
-          call multifab_copy_c(plotdata(n),icomp_rho0,tempfab(n),1,1)
-       end do
+    !       ! w0r_cart is w0 but onto a Cartesian grid in cell-centered as
+    !       ! a scalar.  Since w0 is the radial expansion velocity, w0r_cart
+    !       ! is the radial w0 in a zone
+    !       call multifab_build(w0r_cart(n), mla%la(n),1,0)
+    !       call setval(w0r_cart(n), ZERO, all=.true.)
 
-       ! rhoh0
-       if (do_smallscale) then
-          h0 = ZERO
-       else
-          if (spherical .eq. 1) then
-             ! only one level of base state so rho0 is defined everywhere
-             h0 = rhoh0 / rho0
-          else
-             ! for Cartesian, rho0 will be zero in index locations where 
-             ! there is no grid at that resolution.  Prevent dividing
-             ! by zero
-             h0(:,:) = ZERO
+    !    end do
 
-             do n = 1, nlevs
-                do j = 1,numdisjointchunks(n)
-                   do r = r_start_coord(n,j), r_end_coord(n,j)
-                      h0(n,r) = rhoh0(n,r)/rho0(n,r)
-                   enddo
-                enddo
-             enddo
-          endif
+    !    if (evolve_base_state) then
+    !       ! put w0 on Cartesian edges as a vector
+    !       call make_w0mac(mla,w0,w0mac,dx,the_bc_tower%bc_tower_array)
 
-       end if
+    !       ! put w0 in Cartesian cell-centers as a scalar (the radial expansion velocity)
+    !       call put_1d_array_on_cart(w0,w0r_cart,1,.true.,.false.,dx, &
+    !                                 the_bc_tower%bc_tower_array,mla)
+    !    end if
 
-       call put_1d_array_on_cart(rhoh0,tempfab,dm+rhoh_comp,.false.,.false.,dx, &
-                                 the_bc_tower%bc_tower_array,mla)
+    ! end if
 
-       do n=1,nlevs
-          call multifab_copy_c(plotdata(n),icomp_rhoh0,tempfab(n),1,1)
-       end do
+    ! if (plot_base) then
 
-       ! h0
-       call put_1d_array_on_cart(h0,tempfab,foextrap_comp,.false.,.false.,dx, &
-                                 the_bc_tower%bc_tower_array,mla)
+    !    ! w0
+    !    if (evolve_base_state) then
+    !       call put_1d_array_on_cart(w0,tempfab,1,.true.,.true.,dx, &
+    !                                 the_bc_tower%bc_tower_array,mla)
+    !    else
+    !       do n=1,nlevs
+    !          call setval(tempfab(n), ZERO, all=.true.)
+    !       end do
+    !    end if
 
-       do n=1,nlevs
-          call multifab_copy_c(plotdata(n),icomp_h0,tempfab(n),1,1)
-       end do
+    !    do n=1,nlevs
+    !       call multifab_copy_c(plotdata(n),icomp_w0,tempfab(n),1,dm)
+    !    end do
 
-       ! p0
-       call put_1d_array_on_cart(p0,tempfab,foextrap_comp,.false.,.false.,dx, &
-                                 the_bc_tower%bc_tower_array,mla)
-       do n=1,nlevs
-          call multifab_copy_c(plotdata(n),icomp_p0,tempfab(n),1,1)
-       end do
+    !    ! divw0
+    !    do n=1,nlevs
+    !       if (spherical .eq. 1) then
+    !          n_1d = 1
+    !       else
+    !          n_1d = n
+    !       end if
+    !       call make_divw0(plotdata(n),icomp_divw0,w0(n_1d,:),w0mac(n,:),dx(n,:))
+    !    end do
 
-    end if
+    !    ! rho0
+    !    call put_1d_array_on_cart(rho0,tempfab,dm+rho_comp,.false.,.false.,dx, &
+    !                              the_bc_tower%bc_tower_array,mla)
 
-    if (plot_eta) then
-       call put_1d_array_on_cart(etarho_cc,tempfab,foextrap_comp,.false.,.false.,dx, &
-                                 the_bc_tower%bc_tower_array,mla)
-       do n=1,nlevs
-          call multifab_copy_c(plotdata(n),icomp_eta,tempfab(n),1,1)
-       end do
-    endif
+    !    do n=1,nlevs
+    !       call multifab_copy_c(plotdata(n),icomp_rho0,tempfab(n),1,1)
+    !    end do
+
+    !    ! rhoh0
+    !    if (do_smallscale) then
+    !       h0 = ZERO
+    !    else
+    !       if (spherical .eq. 1) then
+    !          ! only one level of base state so rho0 is defined everywhere
+    !          h0 = rhoh0 / rho0
+    !       else
+    !          ! for Cartesian, rho0 will be zero in index locations where 
+    !          ! there is no grid at that resolution.  Prevent dividing
+    !          ! by zero
+    !          h0(:,:) = ZERO
+
+    !          do n = 1, nlevs
+    !             do j = 1,numdisjointchunks(n)
+    !                do r = r_start_coord(n,j), r_end_coord(n,j)
+    !                   h0(n,r) = rhoh0(n,r)/rho0(n,r)
+    !                enddo
+    !             enddo
+    !          enddo
+    !       endif
+
+    !    end if
+
+    !    call put_1d_array_on_cart(rhoh0,tempfab,dm+rhoh_comp,.false.,.false.,dx, &
+    !                              the_bc_tower%bc_tower_array,mla)
+
+    !    do n=1,nlevs
+    !       call multifab_copy_c(plotdata(n),icomp_rhoh0,tempfab(n),1,1)
+    !    end do
+
+    !    ! h0
+    !    call put_1d_array_on_cart(h0,tempfab,foextrap_comp,.false.,.false.,dx, &
+    !                              the_bc_tower%bc_tower_array,mla)
+
+    !    do n=1,nlevs
+    !       call multifab_copy_c(plotdata(n),icomp_h0,tempfab(n),1,1)
+    !    end do
+
+    !    ! p0
+    !    call put_1d_array_on_cart(p0,tempfab,foextrap_comp,.false.,.false.,dx, &
+    !                              the_bc_tower%bc_tower_array,mla)
+    !    do n=1,nlevs
+    !       call multifab_copy_c(plotdata(n),icomp_p0,tempfab(n),1,1)
+    !    end do
+
+    ! end if
+
+    ! if (plot_eta) then
+    !    call put_1d_array_on_cart(etarho_cc,tempfab,foextrap_comp,.false.,.false.,dx, &
+    !                              the_bc_tower%bc_tower_array,mla)
+    !    do n=1,nlevs
+    !       call multifab_copy_c(plotdata(n),icomp_eta,tempfab(n),1,1)
+    !    end do
+    ! endif
 
 
     do n = 1,nlevs
 
-       if (spherical .eq. 1) then
-          n_1d = 1
-       else
-          n_1d = n
-       end if
-
-       ! RADIAL AND CIRCUMFERENTIAL VELOCITY (spherical only)
-       if (spherical .eq. 1) then
-          call make_velrc(plotdata(n),icomp_velr,icomp_velc,u(n),w0r_cart(n),normal(n))
-       endif
+       n_1d = n
 
        ! MAGVEL = |U + w0|
        call make_magvel(plotdata(n),icomp_magvel,icomp_mom,s(n),u(n),w0(n_1d,:),w0mac(n,:))
@@ -467,64 +347,64 @@ contains
 
     end do
 
-    do n=1,nlevs
+    ! do n=1,nlevs
 
-       ! make_tfromp -> TFROMP, TPERT, MACHNUMBER, CS, DELTAGAMMA, and ENTROPY
-       ! make_tfromH -> TFROMP AND DELTA_P
-       if (spherical .eq. 1) then
+    !    ! make_tfromp -> TFROMP, TPERT, MACHNUMBER, CS, DELTAGAMMA, and ENTROPY
+    !    ! make_tfromH -> TFROMP AND DELTA_P
+    !    if (spherical .eq. 1) then
           
-          call make_tfromp(plotdata(n), &
-                           icomp_tfromp,icomp_tpert,icomp_machno,icomp_cs, &
-                           icomp_dg,icomp_entropy,icomp_magvel, &
-                           s(n), &
-                           tempbar(1,:),gamma1bar(1,:),p0(1,:),dx(n,:))
+    !       call make_tfromp(plotdata(n), &
+    !                        icomp_tfromp,icomp_tpert,icomp_machno,icomp_cs, &
+    !                        icomp_dg,icomp_entropy,icomp_magvel, &
+    !                        s(n), &
+    !                        tempbar(1,:),gamma1bar(1,:),p0(1,:),dx(n,:))
 
-          if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &
-               call make_tfromH(plotdata(n),icomp_tfromH,icomp_tpert, &
-                                icomp_dp,s(n),p0(1,:), &
-                                tempbar(1,:),dx(n,:))
+    !       if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &
+    !            call make_tfromH(plotdata(n),icomp_tfromH,icomp_tpert, &
+    !                             icomp_dp,s(n),p0(1,:), &
+    !                             tempbar(1,:),dx(n,:))
 
-       else
+    !    else
 
-          call make_tfromp(plotdata(n), &
-                           icomp_tfromp,icomp_tpert,icomp_machno,icomp_cs, &
-                           icomp_dg,icomp_entropy,icomp_magvel, &
-                           s(n), &
-                           tempbar(n,:),gamma1bar(n,:),p0(n,:),dx(n,:))
+    !       call make_tfromp(plotdata(n), &
+    !                        icomp_tfromp,icomp_tpert,icomp_machno,icomp_cs, &
+    !                        icomp_dg,icomp_entropy,icomp_magvel, &
+    !                        s(n), &
+    !                        tempbar(n,:),gamma1bar(n,:),p0(n,:),dx(n,:))
 
-          if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &
-               call make_tfromH(plotdata(n),icomp_tfromH,icomp_tpert, &
-                                icomp_dp,s(n),p0(n,:), &
-                                tempbar(n,:),dx(n,:))
+    !       if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &
+    !            call make_tfromH(plotdata(n),icomp_tfromH,icomp_tpert, &
+    !                             icomp_dp,s(n),p0(n,:), &
+    !                             tempbar(n,:),dx(n,:))
 
-       end if
+    !    end if
        
-    end do
+    ! end do
 
-    ! CONDUCTIVITY
-    if (use_thermal_diffusion) then
-       do n=1,nlevs
-          ! this just uses (rho, T, X_k) ---> conductivity
-          ! it doesn't need to do anything fancy for spherical
-          call make_conductivity(plotdata(n),icomp_conductivity,s(n))
-       end do
-    end if
+    ! ! CONDUCTIVITY
+    ! if (use_thermal_diffusion) then
+    !    do n=1,nlevs
+    !       ! this just uses (rho, T, X_k) ---> conductivity
+    !       ! it doesn't need to do anything fancy for spherical
+    !       call make_conductivity(plotdata(n),icomp_conductivity,s(n))
+    !    end do
+    ! end if
 
-    ! ADIABATIC EXCESS
-    if (plot_ad_excess) then
-       do n = 1, nlevs
-          call make_ad_excess(plotdata(n),icomp_ad_excess,s(n),normal(n))
-       enddo
-    endif
+    ! ! ADIABATIC EXCESS
+    ! if (plot_ad_excess) then
+    !    do n = 1, nlevs
+    !       call make_ad_excess(plotdata(n),icomp_ad_excess,s(n),normal(n))
+    !    enddo
+    ! endif
 
 
-    ! PARTICLES
-    if (use_particles) then
-       do n = 1, nlevs
-          call multifab_setval_c(plotdata(n),ZERO,icomp_part,1)
-       enddo
-       call make_particle_count(mla,plotdata,icomp_part,particles)
-    endif
+    ! ! PARTICLES
+    ! if (use_particles) then
+    !    do n = 1, nlevs
+    !       call multifab_setval_c(plotdata(n),ZERO,icomp_part,1)
+    !    enddo
+    !    call make_particle_count(mla,plotdata,icomp_part,particles)
+    ! endif
 
 
     ! processor number
@@ -538,119 +418,119 @@ contains
     ! the loop over nlevs must count backwards to make sure the finer grids are done first
     do n=nlevs,2,-1
        ! set level n-1 data to be the average of the level n data covering it
-       call ml_cc_restriction_c(plotdata(n-1),icomp_tfromp,plotdata(n),icomp_tfromp, &
-                                mla%mba%rr(n-1,:),1)
-       call ml_cc_restriction_c(plotdata(n-1),icomp_tpert,plotdata(n),icomp_tpert, &
-                                mla%mba%rr(n-1,:),1)
-       call ml_cc_restriction_c(plotdata(n-1),icomp_rhopert,plotdata(n),icomp_rhopert, &
-                                mla%mba%rr(n-1,:),1)
-       if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) then
-          call ml_cc_restriction_c(plotdata(n-1),icomp_rhohpert,plotdata(n),icomp_rhohpert, &
-                                   mla%mba%rr(n-1,:),1)
-          call ml_cc_restriction_c(plotdata(n-1),icomp_tfromH,plotdata(n),icomp_tfromH, &
-                                   mla%mba%rr(n-1,:),1)
-          call ml_cc_restriction_c(plotdata(n-1),icomp_dp,plotdata(n),icomp_dp, &
-                                   mla%mba%rr(n-1,:),1)
-       end if
-       if (plot_cs) then
-          call ml_cc_restriction_c(plotdata(n-1),icomp_cs,plotdata(n),icomp_cs, &
-                                   mla%mba%rr(n-1,:),1)
-       end if
-       call ml_cc_restriction_c(plotdata(n-1),icomp_machno,plotdata(n),icomp_machno, &
-                                mla%mba%rr(n-1,:),1)
-       call ml_cc_restriction_c(plotdata(n-1),icomp_dg,plotdata(n),icomp_dg, &
-                                mla%mba%rr(n-1,:),1)
-       call ml_cc_restriction_c(plotdata(n-1),icomp_entropy,plotdata(n),icomp_entropy, &
-                                mla%mba%rr(n-1,:),1)
+       !call ml_cc_restriction_c(plotdata(n-1),icomp_tfromp,plotdata(n),icomp_tfromp, &
+       !                         mla%mba%rr(n-1,:),1)
+       !call ml_cc_restriction_c(plotdata(n-1),icomp_tpert,plotdata(n),icomp_tpert, &
+       !                         mla%mba%rr(n-1,:),1)
+       !call ml_cc_restriction_c(plotdata(n-1),icomp_rhopert,plotdata(n),icomp_rhopert, &
+       !                         mla%mba%rr(n-1,:),1)
+       ! if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) then
+       !    call ml_cc_restriction_c(plotdata(n-1),icomp_rhohpert,plotdata(n),icomp_rhohpert, &
+       !                             mla%mba%rr(n-1,:),1)
+       !    call ml_cc_restriction_c(plotdata(n-1),icomp_tfromH,plotdata(n),icomp_tfromH, &
+       !                             mla%mba%rr(n-1,:),1)
+       !    call ml_cc_restriction_c(plotdata(n-1),icomp_dp,plotdata(n),icomp_dp, &
+       !                             mla%mba%rr(n-1,:),1)
+       ! end if
+       ! if (plot_cs) then
+       !    call ml_cc_restriction_c(plotdata(n-1),icomp_cs,plotdata(n),icomp_cs, &
+       !                             mla%mba%rr(n-1,:),1)
+       ! end if
+       ! call ml_cc_restriction_c(plotdata(n-1),icomp_machno,plotdata(n),icomp_machno, &
+       !                          mla%mba%rr(n-1,:),1)
+       ! call ml_cc_restriction_c(plotdata(n-1),icomp_dg,plotdata(n),icomp_dg, &
+       !                          mla%mba%rr(n-1,:),1)
+       ! call ml_cc_restriction_c(plotdata(n-1),icomp_entropy,plotdata(n),icomp_entropy, &
+       !                          mla%mba%rr(n-1,:),1)
     end do
 
     ! build a cell-centered multifab to hold pi
-    do n=1,nlevs
-       call multifab_build(pi_cc(n), mla%la(n), 1, 0)
-       call setval(pi_cc(n), ZERO, all=.true.)
-    end do
+    ! do n=1,nlevs
+    !    call multifab_build(pi_cc(n), mla%la(n), 1, 0)
+    !    call setval(pi_cc(n), ZERO, all=.true.)
+    ! end do
 
 
-    if (use_alt_energy_fix) then
-       ! make beta_0 on a multifab
-       call make_grav_cell(grav_cell,rho0)
-       call make_div_coeff(div_coeff,rho0,p0,gamma1bar,grav_cell)
+    ! if (use_alt_energy_fix) then
+    !    ! make beta_0 on a multifab
+    !    call make_grav_cell(grav_cell,rho0)
+    !    call make_div_coeff(div_coeff,rho0,p0,gamma1bar,grav_cell)
        
-       call put_1d_array_on_cart(div_coeff,tempfab,foextrap_comp,.false.,.false.,dx, &
-                                 the_bc_tower%bc_tower_array,mla)
-    endif
+    !    call put_1d_array_on_cart(div_coeff,tempfab,foextrap_comp,.false.,.false.,dx, &
+    !                              the_bc_tower%bc_tower_array,mla)
+    ! endif
 
-    ! new function that average the nodal pi to cell-centers, then
-    ! normalized the entire signal to sum to 0.  If we are doing
-    ! use_alt_energy_fix = T, then we first want to convert
-    ! (pi/beta_0) to pi.
-    call make_pi_cc(mla,pi,pi_cc,the_bc_tower%bc_tower_array,tempfab)
+    ! ! new function that average the nodal pi to cell-centers, then
+    ! ! normalized the entire signal to sum to 0.  If we are doing
+    ! ! use_alt_energy_fix = T, then we first want to convert
+    ! ! (pi/beta_0) to pi.
+    ! call make_pi_cc(mla,pi,pi_cc,the_bc_tower%bc_tower_array,tempfab)
 
-    do n=1,nlevs
+    ! do n=1,nlevs
 
-       ! DELTA_T
-       if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &
-            call make_deltaT(plotdata(n),icomp_dT,icomp_tfromp,icomp_tfromH)
+    !    ! DELTA_T
+    !    if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) &
+    !         call make_deltaT(plotdata(n),icomp_dT,icomp_tfromp,icomp_tfromH)
 
-       ! PI
-       call multifab_copy_c(plotdata(n),icomp_pi,pi_cc(n),1,1)
+    !    ! PI
+    !    call multifab_copy_c(plotdata(n),icomp_pi,pi_cc(n),1,1)
 
-       ! GRAD PI
-       if (plot_gpi) then
-          call multifab_copy_c(plotdata(n),icomp_gpi,gpi(n),1,dm)
-       endif
+    !    ! GRAD PI
+    !    if (plot_gpi) then
+    !       call multifab_copy_c(plotdata(n),icomp_gpi,gpi(n),1,dm)
+    !    endif
 
-       ! pi * div(U)
-       if (plot_pidivu) then
-          call make_pidivu(plotdata(n),icomp_pidivu,pi_cc(n),u(n),dx(n,:))
-       endif
+    !    ! pi * div(U)
+    !    if (plot_pidivu) then
+    !       call make_pidivu(plotdata(n),icomp_pidivu,pi_cc(n),u(n),dx(n,:))
+    !    endif
 
-    end do
-
-
-    ! SPONGE
-    if (plot_sponge_fdamp) then
-       tempval = dt*sponge_kappa
-       do n=1,nlevs
-          ! compute f_damp assuming sponge=1/(1+dt*kappa*fdamp)
-          ! therefore fdamp = (1/sponge-1)/(dt*kappa)
-
-          ! plotdata = 1
-          call multifab_setval_c(plotdata(n),ONE,icomp_sponge,1)
-          ! tempfab = 1
-          call multifab_setval(tempfab(n),ONE)
-          ! plotdata = 1/sponge
-          call multifab_div_div_c(plotdata(n),icomp_sponge,sponge(n),1,1)
-          ! plotdata = 1/sponge-1
-          call multifab_sub_sub_c(plotdata(n),icomp_sponge,tempfab(n),1,1)
-          ! plotdata = (1/sponge-1)/(dt*kappa)
-          call multifab_div_div_s_c(plotdata(n),icomp_sponge,tempval,1)
-       end do
-    else
-       do n=1,nlevs
-          call multifab_copy_c(plotdata(n),icomp_sponge,sponge(n),1,1)
-       end do
-    end if
-
-    !PIOVERP0 and P0PLUSPI
-    if (plot_base) then
-       do n=1,nlevs
-          call multifab_copy_c(plotdata(n),icomp_pioverp0,pi_cc(n),1,1)
-          call multifab_div_div_c(plotdata(n),icomp_pioverp0,plotdata(n),icomp_p0,1)
-          call multifab_copy_c(plotdata(n),icomp_p0pluspi,pi_cc(n),1,1)
-          call multifab_plus_plus_c(plotdata(n),icomp_p0pluspi,plotdata(n),icomp_p0,1)
-       end do
-    end if
+    ! end do
 
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! we just made the entropy above.  To compute s - sbar, we need to average
-    ! the entropy first, and then compute that.
-    ! an average quantity needs ghostcells, so copy entropy into
-    ! tempfab
-    do n=1,nlevs
-       call multifab_copy_c(tempfab(n),1,plotdata(n),icomp_entropy,1)
-    end do
+    ! ! SPONGE
+    ! if (plot_sponge_fdamp) then
+    !    tempval = dt*sponge_kappa
+    !    do n=1,nlevs
+    !       ! compute f_damp assuming sponge=1/(1+dt*kappa*fdamp)
+    !       ! therefore fdamp = (1/sponge-1)/(dt*kappa)
+
+    !       ! plotdata = 1
+    !       call multifab_setval_c(plotdata(n),ONE,icomp_sponge,1)
+    !       ! tempfab = 1
+    !       call multifab_setval(tempfab(n),ONE)
+    !       ! plotdata = 1/sponge
+    !       call multifab_div_div_c(plotdata(n),icomp_sponge,sponge(n),1,1)
+    !       ! plotdata = 1/sponge-1
+    !       call multifab_sub_sub_c(plotdata(n),icomp_sponge,tempfab(n),1,1)
+    !       ! plotdata = (1/sponge-1)/(dt*kappa)
+    !       call multifab_div_div_s_c(plotdata(n),icomp_sponge,tempval,1)
+    !    end do
+    ! else
+    !    do n=1,nlevs
+    !       call multifab_copy_c(plotdata(n),icomp_sponge,sponge(n),1,1)
+    !    end do
+    ! end if
+
+    ! !PIOVERP0 and P0PLUSPI
+    ! if (plot_base) then
+    !    do n=1,nlevs
+    !       call multifab_copy_c(plotdata(n),icomp_pioverp0,pi_cc(n),1,1)
+    !       call multifab_div_div_c(plotdata(n),icomp_pioverp0,plotdata(n),icomp_p0,1)
+    !       call multifab_copy_c(plotdata(n),icomp_p0pluspi,pi_cc(n),1,1)
+    !       call multifab_plus_plus_c(plotdata(n),icomp_p0pluspi,plotdata(n),icomp_p0,1)
+    !    end do
+    ! end if
+
+
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! ! we just made the entropy above.  To compute s - sbar, we need to average
+    ! ! the entropy first, and then compute that.
+    ! ! an average quantity needs ghostcells, so copy entropy into
+    ! ! tempfab
+    ! do n=1,nlevs
+    !    call multifab_copy_c(tempfab(n),1,plotdata(n),icomp_entropy,1)
+    ! end do
 
     ! restrict data and fill all ghost cells
     call ml_restrict_and_fill(nlevs,tempfab,mla%mba%rr,the_bc_tower%bc_tower_array, &
@@ -659,16 +539,16 @@ contains
                               nc=1, &
                               ng=tempfab(1)%ng)
     
-    call average(mla,tempfab,entropybar,dx,1)
+    ! call average(mla,tempfab,entropybar,dx,1)
 
-    call make_entropypert(plotdata,icomp_entropy,icomp_entropypert,entropybar,dx)
+    ! call make_entropypert(plotdata,icomp_entropy,icomp_entropypert,entropybar,dx)
 
-    ! the loop over nlevs must count backwards to make sure the finer grids are done first
-    do n=nlevs,2,-1
-       ! set level n-1 data to be the average of the level n data covering it
-       call ml_cc_restriction_c(plotdata(n-1),icomp_entropypert,plotdata(n), &
-                                icomp_entropypert,mla%mba%rr(n-1,:),1)
-    end do
+    ! ! the loop over nlevs must count backwards to make sure the finer grids are done first
+    ! do n=nlevs,2,-1
+    !    ! set level n-1 data to be the average of the level n data covering it
+    !    call ml_cc_restriction_c(plotdata(n-1),icomp_entropypert,plotdata(n), &
+    !                             icomp_entropypert,mla%mba%rr(n-1,:),1)
+    ! end do
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     if (parallel_IOProcessor()) then
@@ -694,17 +574,8 @@ contains
     do n = 1,nlevs
        call destroy(plotdata(n))
        call destroy(tempfab(n))
-       call destroy(pi_cc(n))
+       !call destroy(pi_cc(n))
     end do
-
-    if (spherical .eq. 1) then
-       do n=1,nlevs
-          call destroy(w0r_cart(n))
-          do comp=1,dm
-             call destroy(w0mac(n,comp))
-          end do
-       end do
-    end if
 
     call destroy(bpt)
 

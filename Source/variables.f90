@@ -84,102 +84,15 @@ contains
 
     icomp_vel      = get_next_plot_index(dm_in)
     icomp_rho      = get_next_plot_index(1)
-    if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) then
-       icomp_rhoh     = get_next_plot_index(1)
-       icomp_h        = get_next_plot_index(1)
-    end if
-
-    if (plot_spec) icomp_spec = get_next_plot_index(nspec)
-    if (plot_trac) icomp_trac = get_next_plot_index(ntrac)
-
-    if (plot_base) then
-       icomp_w0    = get_next_plot_index(dm_in)
-       icomp_divw0 = get_next_plot_index(1)
-       icomp_rho0  = get_next_plot_index(1)
-       icomp_rhoh0 = get_next_plot_index(1)
-       icomp_h0    = get_next_plot_index(1)
-       icomp_p0    = get_next_plot_index(1)
-    end if
-
-    if (spherical .eq. 1) then
-       icomp_velr = get_next_plot_index(1)
-       icomp_velc = get_next_plot_index(1)
-    end if
-
     icomp_magvel      = get_next_plot_index(1)
     icomp_mom         = get_next_plot_index(1)
     icomp_vort        = get_next_plot_index(1)
     icomp_src         = get_next_plot_index(1)
-    icomp_rhopert     = get_next_plot_index(1)
-
-    if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) then
-       icomp_rhohpert    = get_next_plot_index(1)
-    endif
-
-    icomp_tfromp      = get_next_plot_index(1)
-    if (.not. use_tfromp .or. (use_tfromp .and. plot_h_with_use_tfromp)) then
-       icomp_tfromH      = get_next_plot_index(1)
-       icomp_dT          = get_next_plot_index(1)
-       icomp_dp          = get_next_plot_index(1)
-    endif
-
-    icomp_tpert       = get_next_plot_index(1)
-    icomp_machno      = get_next_plot_index(1)
-    if (plot_cs) then
-       icomp_cs          = get_next_plot_index(1)
-    end if
-    icomp_dg          = get_next_plot_index(1)
-    icomp_entropy     = get_next_plot_index(1)
-    icomp_entropypert = get_next_plot_index(1)
-    icomp_sponge      = get_next_plot_index(1)
-
-    icomp_pi          = get_next_plot_index(1)
-    if (plot_gpi) then
-       icomp_gpi         = get_next_plot_index(dm_in)
-    endif
-
-    if (plot_base) then
-       icomp_pioverp0    = get_next_plot_index(1)
-       icomp_p0pluspi    = get_next_plot_index(1)
-    end if
-
-    if (plot_omegadot) then
-       icomp_omegadot = get_next_plot_index(nspec)
-    end if
-
-    if (plot_Hnuc) then
-       icomp_enuc     = get_next_plot_index(1)
-    end if
-
-    if (plot_Hext) then
-      icomp_Hext     = get_next_plot_index(1)
-    end if
-
-    if (plot_eta) then
-      icomp_eta     = get_next_plot_index(1)
-    end if
-
-    if (use_thermal_diffusion) then
-       icomp_thermal = get_next_plot_index(1)
-       icomp_conductivity = get_next_plot_index(1)
-    endif
-
-    if (plot_ad_excess) then
-       icomp_ad_excess = get_next_plot_index(1)
-    endif
-
-    if (use_particles) then
-       icomp_part = get_next_plot_index(1)
-    endif
 
     if (plot_processors) then
        icomp_proc = get_next_plot_index(1)
     endif
-
-    if (plot_pidivu) then
-       icomp_pidivu = get_next_plot_index(1)
-    endif
-
+    
   end subroutine init_plot_variables
 
 end module variables
