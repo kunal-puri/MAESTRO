@@ -1020,30 +1020,8 @@ contains
        ng_s = 3
     end if
 
-    ! now that we have dx we can initialize nr_fine and dr_fine
-    if (spherical .eq. 1) then
-
-       dr_fine = dx(max_levs,1) / dble(drdxfac)
-
-       if (.not. octant) then
-          lenx = HALF * (prob_hi(1) - prob_lo(1))
-          leny = HALF * (prob_hi(2) - prob_lo(2))
-          lenz = HALF * (prob_hi(3) - prob_lo(3))
-       else
-          lenx = prob_hi(1) - prob_lo(1)
-          leny = prob_hi(2) - prob_lo(2)
-          lenz = prob_hi(3) - prob_lo(3)
-       end if
-
-       max_dist = sqrt(lenx**2 + leny**2 + lenz**2)
-       nr_fine = int(max_dist / dr_fine) + 1
-
-    else
-
-       nr_fine = extent(mba%pd(max_levs),dm)
-       dr_fine = (prob_hi(dm)-prob_lo(dm)) / dble(nr_fine)
-
-    end if
+    nr_fine = extent(mba%pd(max_levs),dm)
+    dr_fine = (prob_hi(dm)-prob_lo(dm)) / dble(nr_fine)
 
     ! now that we have nr_fine and dr_fine we can create nr, dr, r_cc_loc, r_edge_loc
     call init_radial(max_levs,mba)
@@ -1055,14 +1033,10 @@ contains
                               psi,tempbar,tempbar_init,grav_cell)
 
     ! now that we have dr and nr we can fill initial state
-    if (spherical .eq. 1) then
-       call init_base_state(1,model_file,s0_init(1,:,:),p0_init(1,:),dx(max_levs,:))
-    else
-          ! init_base_state requires loop backwards over levels
-       do n=max_levs,1,-1
-          call init_base_state(n,model_file,s0_init(n,:,:),p0_init(n,:),dx(n,:))
-       end do
-    end if
+    ! init_base_state requires loop backwards over levels
+    do n=max_levs,1,-1
+       call init_base_state(n,model_file,s0_init(n,:,:),p0_init(n,:),dx(n,:))
+    end do
 
     ! Initialize bc's
     call initialize_bc(the_bc_tower,max_levs,pmask)
@@ -1296,11 +1270,7 @@ contains
     ! compute nr_irreg
     domain = get_pd(get_layout(sold(nlevs)))
     domhi  = upb(domain)+1
-    if (.not. octant) then
-       nr_irreg = (3*(domhi(1)/2-0.5d0)**2-0.75d0)/2.d0
-    else
-       nr_irreg = (3*(domhi(1)-0.5d0)**2-0.75d0)/2.d0
-    endif
+    nr_irreg = (3*(domhi(1)-0.5d0)**2-0.75d0)/2.d0
 
     ! create numdisjointchunks, r_start_coord, r_end_coord
     call init_multilevel(sold)
@@ -1314,34 +1284,19 @@ contains
     tempbar      = s0_init(:,:,temp_comp)
     tempbar_init = s0_init(:,:,temp_comp)
 
-    if (fix_base_state) then
-       call compute_cutoff_coords(rho0_old)
-       call make_grav_cell(grav_cell,rho0_old)
-       call destroy(mba)
-       return
-    end if
-
-    if (do_smallscale) then
-       ! first compute cutoff coordinates using initial density profile
-       call compute_cutoff_coords(rho0_old)
-       ! set rho0_old = rhoh0_old = ZERO
-       rho0_old  = ZERO
-       rhoh0_old = ZERO
-    else
-       ! set rho0 to be the average
-       call average(mla,sold,rho0_old,dx,rho_comp)
-       call compute_cutoff_coords(rho0_old)
-
-       ! compute p0 with HSE
-       call make_grav_cell(grav_cell,rho0_old)
-       call enforce_HSE(rho0_old,p0_old,grav_cell)
-
-       ! call eos with r,p as input to recompute T,h
-       call makeTHfromRhoP(sold,p0_old,the_bc_tower%bc_tower_array,mla,dx)
-
-       ! set rhoh0 to be the average
-       call average(mla,sold,rhoh0_old,dx,rhoh_comp)
-    end if
+    ! set rho0 to be the average
+    call average(mla,sold,rho0_old,dx,rho_comp)
+    call compute_cutoff_coords(rho0_old)
+    
+    ! compute p0 with HSE
+    call make_grav_cell(grav_cell,rho0_old)
+    call enforce_HSE(rho0_old,p0_old,grav_cell)
+    
+    ! call eos with r,p as input to recompute T,h
+    call makeTHfromRhoP(sold,p0_old,the_bc_tower%bc_tower_array,mla,dx)
+       
+    ! set rhoh0 to be the average
+    call average(mla,sold,rhoh0_old,dx,rhoh_comp)
 
     ! set tempbar to be the average
     call average(mla,sold,tempbar,dx,temp_comp)
@@ -1350,7 +1305,6 @@ contains
     call destroy(mba)
 
   end subroutine initialize_with_adaptive_grids
-
 
   subroutine initialize_1d_arrays(num_levs,div_coeff_old,div_coeff_new,gamma1bar, &
                                   gamma1bar_hold,s0_init,rho0_old,rhoh0_old,rho0_new, &
