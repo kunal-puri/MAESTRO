@@ -11,6 +11,7 @@ module variables
   integer, save :: rho_comp, rhoh_comp, spec_comp, temp_comp, pi_comp
   integer, save :: trac_comp, press_comp
   integer, save :: foextrap_comp, hoextrap_comp
+  integer, save :: div_comp, pressure_comp
   integer, save :: icomp_vel, icomp_rho, icomp_rhoh, icomp_h, icomp_spec, icomp_trac
   integer, save :: icomp_w0, icomp_divw0, icomp_rho0, icomp_rhoh0, icomp_h0
   integer, save :: icomp_p0, icomp_velr, icomp_velc
@@ -26,6 +27,10 @@ module variables
   integer, save :: icomp_part
   integer, save :: icomp_proc
   integer, save :: icomp_pidivu
+
+  ! divergence and pressure for INS solvers
+  integer, save :: icomp_div
+  integer, save :: icomp_pressure
 
   ! the total number of plot components
   integer, save :: n_plot_comps = 0
@@ -71,6 +76,10 @@ contains
     foextrap_comp = press_comp + 1
     hoextrap_comp = foextrap_comp + 1
 
+    ! pressure and divergence
+    div_comp      = hoextrap_comp + 1
+    !pressure_comp = pressure_comp + 1
+
   end subroutine init_variables
 
   subroutine init_plot_variables()
@@ -87,11 +96,14 @@ contains
     icomp_magvel      = get_next_plot_index(1)
     icomp_mom         = get_next_plot_index(1)
     icomp_vort        = get_next_plot_index(1)
-    icomp_src         = get_next_plot_index(1)
+    icomp_src         = get_next_plot_index(1)   
 
     if (plot_processors) then
        icomp_proc = get_next_plot_index(1)
     endif
+
+    icomp_div         = get_next_plot_index(1)
+    !icomp_pressure    = get_next_plot_index(1)
     
   end subroutine init_plot_variables
 

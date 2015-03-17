@@ -17,6 +17,8 @@ module plot_variables_module
   public :: make_rhopert, make_rhohpert
   public :: make_processor_number, make_pidivu
 
+  public :: make_divergence
+
 contains
 
 
@@ -2865,6 +2867,115 @@ contains
        pp(:,:,:,comp_proc) = parallel_myproc()
     enddo
   end subroutine make_processor_number
+
+  !---------------------------------------------------------------------------
+  ! make_divergence
+  !---------------------------------------------------------------------------
+  subroutine make_divergence(div,comp,u,dx,bc)
+
+    use bl_prof_module
+
+    integer        , intent(in   ) :: comp
+    type(multifab) , intent(inout) :: div
+    type(multifab) , intent(in   ) :: u
+    real(kind=dp_t), intent(in   ) :: dx(:)
+    type(bc_level) , intent(in   ) :: bc
+
+    real(kind=dp_t), pointer:: up(:,:,:,:)
+    real(kind=dp_t), pointer:: dp(:,:,:,:)
+    integer :: lo(get_dim(div)),hi(get_dim(div))
+    integer :: i,ng_u,ng_d,dm
+
+    type(bl_prof_timer), save :: bpt
+
+    call build(bpt, "make_divergence")
+
+    dm = get_dim(div)
+
+    ng_u = nghost(u)
+    ng_d = nghost(div)
+
+    do i = 1, nfabs(u)
+       up  => dataptr(u, i)
+       dp  => dataptr(div, i)
+       lo  =  lwb(get_box(u, i))
+       hi  =  upb(get_box(u, i))
+       select case (dm)
+       case (1)
+          call setval(div,0.d0,comp,1,all=.true.)
+       case (2)
+          call divergence_2d(dp(:,:,1,comp),ng_d,up(:,:,1,:),ng_u,lo,hi,dx, &
+                             bc%phys_bc_level_array(i,:,:))
+       ! case (3)
+       !    call makevort_3d(vp(:,:,:,comp),ng_v,up(:,:,:,:),ng_u,lo,hi,dx, &
+       !                     bc%phys_bc_level_array(i,:,:))
+       end select
+    end do
+
+    call destroy(bpt)
+
+  end subroutine make_divergence
+
+  subroutine divergence_2d(div,ng_d,u,ng_u,lo,hi,dx,bc)
+
+    use bc_module
+    use bl_constants_module
+
+    integer           , intent(in   ) :: lo(:), hi(:), ng_d, ng_u
+    real (kind = dp_t), intent(  out) :: div(lo(1)-ng_d:,lo(2)-ng_d:)  
+    real (kind = dp_t), intent(in   ) ::    u(lo(1)-ng_u:,lo(2)-ng_u:,:)  
+    real (kind = dp_t), intent(in   ) :: dx(:)
+    integer           , intent(in   ) :: bc(:,:)
+
+    !     Local variables
+    integer :: i, j
+    real (kind = dp_t) :: ux, vy
+
+    do j = lo(2), hi(2)
+       do i = lo(1), hi(1)
+          ux = (u(i+1,j,1) - u(i-1,j,1)) / (2.0d0*dx(1))
+          vy = (u(i,j+1,2) - u(i,j-1,2)) / (2.0d0*dx(2))
+          div(i,j) = ux + vy
+       enddo
+    enddo
+
+    if (bc(1,1) .eq. INLET .or. bc(1,1) .eq. SLIP_WALL .or. bc(1,1) .eq. NO_SLIP_WALL) then
+       i = lo(1)
+       do j = lo(2), hi(2)
+          ux = (u(i+1,j,1) + 3.d0*u(i,j,1) - 4.d0*u(i-1,j,1)) / dx(1)
+          vy = (u(i,j+1,2) - u(i,j-1,2)) / dx(2)
+          div(i,j) = ux + vy
+       end do
+    end if
+
+    if (bc(1,2) .eq. INLET .or. bc(1,2) .eq. SLIP_WALL .or. bc(1,2) .eq. NO_SLIP_WALL) then
+       i = hi(1)
+       do j = lo(2), hi(2)
+          ux = -(u(i-1,j,1) + 3.d0*u(i,j,1) - 4.d0*u(i+1,j,1)) / dx(1)
+          vy = (u(i,j+1,2) - u(i,j-1,2)) / (2.d0*dx(2))
+          div(i,j) = ux + vy
+       end do
+    end if
+
+    if (bc(2,1) .eq. INLET .or. bc(2,1) .eq. SLIP_WALL .or. bc(2,1) .eq. NO_SLIP_WALL) then
+       j = lo(2)
+       do i = lo(1), hi(1)
+          ux = (u(i+1,j,1) - u(i-1,j,1)) / (2.d0*dx(1)) 
+          vy = (u(i,j+1,2) + 3.d0*u(i,j,2) - 4.d0*u(i,j-1,2)) / dx(2)
+          div(i,j) = ux + vy
+       end do
+    end if
+
+    if (bc(2,2) .eq. INLET .or. bc(2,2) .eq. SLIP_WALL .or. bc(2,2) .eq. NO_SLIP_WALL) then
+       j = hi(2)
+       do i = lo(1), hi(1)
+          ux =  (u(i+1,j,1) - u(i-1,j,1)) / (2.d0*dx(1)) 
+          vy = -(u(i,j-1,2) + 3.d0*u(i,j,2) - 4.d0*u(i,j+1,2)) / dx(2)
+          div(i,j) = ux + vy
+       end do
+    end if
+
+  end subroutine divergence_2d
 
 
 end module plot_variables_module

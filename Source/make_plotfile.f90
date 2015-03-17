@@ -48,6 +48,9 @@ contains
        plot_names(icomp_proc) = "processor_number"
     endif
 
+    plot_names(icomp_div)      = "divergence"
+    !plot_names(icomp_pressure) = "pressure"
+
   end subroutine get_plot_names
 
   subroutine make_plotfile(dirname,mla,u,s,pi,gpi,rho_omegadot, &
@@ -155,10 +158,9 @@ contains
     end do
 
     do n = 1,nlevs
-
        n_1d = n
 
-       ! MAGVEL = |U + w0|
+       ! MAGVEL = |U + w0| AND MOMENTUM
        call make_magvel(plotdata(n),icomp_magvel,icomp_mom,s(n),u(n),w0(n_1d,:),w0mac(n,:))
 
        ! VORTICITY
@@ -168,15 +170,16 @@ contains
        ! DIVU
        call multifab_copy_c(plotdata(n),icomp_src,Source(n),1,1)
 
+       ! processor number
+       if (plot_processors) then
+          call make_processor_number(plotdata(n),icomp_proc)
+       end if
+
+       ! DIVERGENCE
+       call make_divergence(plotdata(n), icomp_div, u(n), dx(n,:), &
+                            the_bc_tower%bc_tower_array(n))
     end do
 
-    ! processor number
-    if (plot_processors) then
-       do n = 1, nlevs
-          call make_processor_number(plotdata(n),icomp_proc)
-       enddo
-    endif
-    
     ! restrict data and fill all ghost cells
     call ml_restrict_and_fill(nlevs,tempfab,mla%mba%rr,the_bc_tower%bc_tower_array, &
                               icomp=1, &
