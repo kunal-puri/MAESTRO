@@ -67,55 +67,55 @@ contains
     ng_f  = nghost(force(1))
     ng_w0 = nghost(w0mac(1,1))
 
-    do n = 1, nlevs
+    ! do n = 1, nlevs
 
-       do i = 1, nfabs(uold(n))
-          uop  => dataptr(uold(n),i)
-          unp  => dataptr(unew(n),i)
-          ump  => dataptr(umac(n,1),i)
-          uepx => dataptr(uedge(n,1),i)
-          spp  => dataptr(sponge(n),i)
-          fp   =>  dataptr(force(n),i)
-          lo = lwb(get_box(uold(n),i))
-          hi = upb(get_box(uold(n),i))
-          select case (dm)
-          case (1)
-             call update_velocity_1d(uop(:,1,1,:), ng_uo, unp(:,1,1,:), ng_un, &
-                                     ump(:,1,1,1),  ng_um, &
-                                     uepx(:,1,1,:), ng_ue, &
-                                     fp(:,1,1,:), ng_f, w0(n,:), &
-                                     lo, hi, dx(n,:), dt, spp(:,1,1,1), ng_sp)
-          case (2)
-             vmp  => dataptr(umac(n,2),i)
-             uepy => dataptr(uedge(n,2),i)
-             call update_velocity_2d(uop(:,:,1,:), ng_uo, unp(:,:,1,:), ng_un, &
-                                     ump(:,:,1,1), vmp(:,:,1,1), ng_um, &
-                                     uepx(:,:,1,:), uepy(:,:,1,:), ng_ue, &
-                                     fp(:,:,1,:), ng_f, w0(n,:), &
-                                     lo, hi, dx(n,:), dt, spp(:,:,1,1), ng_sp)
-          case (3)
-             vmp  => dataptr(umac(n,2),i)
-             wmp   => dataptr(umac(n,3),i)
-             uepy => dataptr(uedge(n,2),i)
-             uepz  => dataptr(uedge(n,3),i)
-             w0xp   => dataptr(w0mac(n,1),i)
-             w0yp   => dataptr(w0mac(n,2),i)
-             w0zp   => dataptr(w0mac(n,3),i)
-             if (spherical .eq. 1) then
-                n_1d = 1
-             else
-                n_1d = n
-             end if
-             call update_velocity_3d(uop(:,:,:,:), ng_uo, unp(:,:,:,:), ng_un, &
-                                     ump(:,:,:,1), vmp(:,:,:,1), wmp(:,:,:,1), ng_um, &
-                                     uepx(:,:,:,:), uepy(:,:,:,:), uepz(:,:,:,:), ng_ue, &
-                                     fp(:,:,:,:), ng_f, w0(n_1d,:), &
-                                     w0xp(:,:,:,1), w0yp(:,:,:,1), w0zp(:,:,:,1), &
-                                     ng_w0, lo, hi, dx(n,:), dt, spp(:,:,:,1), ng_sp)
-          end select
-       end do
+    !    do i = 1, nfabs(uold(n))
+    !       uop  => dataptr(uold(n),i)
+    !       unp  => dataptr(unew(n),i)
+    !       ump  => dataptr(umac(n,1),i)
+    !       uepx => dataptr(uedge(n,1),i)
+    !       spp  => dataptr(sponge(n),i)
+    !       fp   =>  dataptr(force(n),i)
+    !       lo = lwb(get_box(uold(n),i))
+    !       hi = upb(get_box(uold(n),i))
+    !       select case (dm)
+    !       case (1)
+    !          call update_velocity_1d(uop(:,1,1,:), ng_uo, unp(:,1,1,:), ng_un, &
+    !                                  ump(:,1,1,1),  ng_um, &
+    !                                  uepx(:,1,1,:), ng_ue, &
+    !                                  fp(:,1,1,:), ng_f, w0(n,:), &
+    !                                  lo, hi, dx(n,:), dt, spp(:,1,1,1), ng_sp)
+    !       case (2)
+    !          vmp  => dataptr(umac(n,2),i)
+    !          uepy => dataptr(uedge(n,2),i)
+    !          call update_velocity_2d(uop(:,:,1,:), ng_uo, unp(:,:,1,:), ng_un, &
+    !                                  ump(:,:,1,1), vmp(:,:,1,1), ng_um, &
+    !                                  uepx(:,:,1,:), uepy(:,:,1,:), ng_ue, &
+    !                                  fp(:,:,1,:), ng_f, w0(n,:), &
+    !                                  lo, hi, dx(n,:), dt, spp(:,:,1,1), ng_sp)
+    !       case (3)
+    !          vmp  => dataptr(umac(n,2),i)
+    !          wmp   => dataptr(umac(n,3),i)
+    !          uepy => dataptr(uedge(n,2),i)
+    !          uepz  => dataptr(uedge(n,3),i)
+    !          w0xp   => dataptr(w0mac(n,1),i)
+    !          w0yp   => dataptr(w0mac(n,2),i)
+    !          w0zp   => dataptr(w0mac(n,3),i)
+    !          if (spherical .eq. 1) then
+    !             n_1d = 1
+    !          else
+    !             n_1d = n
+    !          end if
+    !          call update_velocity_3d(uop(:,:,:,:), ng_uo, unp(:,:,:,:), ng_un, &
+    !                                  ump(:,:,:,1), vmp(:,:,:,1), wmp(:,:,:,1), ng_um, &
+    !                                  uepx(:,:,:,:), uepy(:,:,:,:), uepz(:,:,:,:), ng_ue, &
+    !                                  fp(:,:,:,:), ng_f, w0(n_1d,:), &
+    !                                  w0xp(:,:,:,1), w0yp(:,:,:,1), w0zp(:,:,:,1), &
+    !                                  ng_w0, lo, hi, dx(n,:), dt, spp(:,:,:,1), ng_sp)
+    !       end select
+    !    end do
 
-    enddo
+    ! enddo
 
     ! restrict data and fill all ghost cells
     call ml_restrict_and_fill(nlevs,unew,mla%mba%rr,the_bc_level, &

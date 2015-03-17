@@ -1164,7 +1164,6 @@ subroutine varden()
            call make_sponge(sponge,dx,dt,mla)
         end if
         runtime1 = parallel_wtime()
-        write(*,*) 'ADVANCING TIMESTEP IN THE MAIN LOOP'
         call advance_timestep(init_mode,mla,uold,sold,unew,snew,gpi,pi,normal,rho0_old, &
                               rhoh0_old,rho0_new,rhoh0_new,p0_old,p0_new,tempbar,gamma1bar, &
                               w0,rho_omegadot2,rho_Hnuc2,rho_Hext,thermal2, &
@@ -1172,7 +1171,6 @@ subroutine varden()
                               grav_cell,dx,dt,dtold,the_bc_tower,dSdt,Source_old, &
                               Source_new,etarho_ec,etarho_cc,psi,sponge,hgrhs,tempbar_init, &
                               particles)
-        write(*, *) 'DONE ADVANCING TIME-STEP'
         ! limit the timestep if the temperature is changing too rapidly
         if (nuclear_dt_fac .gt. 0.d0) then
            smaxold = 0.d0
