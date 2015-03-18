@@ -103,6 +103,13 @@ contains
              call convective_fluxes_2d(fp_x(:,:,1,:), fp_y(:,:,1,:), ng_f, &
                                        usp(:,:,1,1), vsp(:,:,1,1), ng_us, &
                                        lo, hi, dx, n)
+
+             fp_x => dataptr(dflux(n,1), i)
+             fp_y => dataptr(dflux(n,2), i)
+
+             call diffusive_fluxes_2d(fp_x(:,:,1,:), fp_y(:,:,1,:), ng_f, &
+                                      usp(:,:,1,1), vsp(:,:,1,1), ng_us, &
+                                      lo, hi, dx, n)
              
           ! case (3)
           !    uop => dataptr(uold(n),i)
@@ -185,10 +192,10 @@ contains
           cflux_x(i, j, 1)   = 0.25*( (ustar(i,j)+ustar(i+1,j)) * &
                                       (ustar(i,j)+ustar(i+1,j)) )
 
-          cflux_y(i-1, j, 1) = 0.25*( (vstar(i,j-1)+vstar(i-1,j-1)) * &
+          cflux_y(i-1, j, 1) = 0.25*( (vstar(i-1,j)+vstar(i,j)) * &
                                       (ustar(i,j)+ustar(i,j-1)) )
           
-          cflux_y(i, j, 1)   = 0.25*( (vstar(i,j)+vstar(i-1,j)) * &
+          cflux_y(i, j, 1)   = 0.25*( (vstar(i,j+1)+vstar(i-1,j+1)) * &
                                       (ustar(i,j)+ustar(i,j+1)) )
 
        end do
@@ -200,11 +207,11 @@ contains
     do j = lo(2), hi(2)+1
        do i = lo(1), hi(1)
           
-          cflux_x(i, j-1, 2) = 0.25*( (ustar(i-1,j)+ustar(i-1,j-1)) * &
-                                      (vstar(i-1,j-1)+vstar(i,j-1)) )
+          cflux_x(i, j-1, 2) = 0.25*( (ustar(i,j)+ustar(i,j-1)) * &
+                                      (vstar(i-1,j)+vstar(i,j)) )
 
-          cflux_x(i, j, 2)   = 0.25*( (ustar(i,j)+ustar(i,j-1)) * &
-                                      (vstar(i,j-1)+vstar(i+1,j-1)) )
+          cflux_x(i, j, 2)   = 0.25*( (ustar(i+1,j)+ustar(i+1,j-1)) * &
+                                      (vstar(i,j)+vstar(i+1,j)) )
 
           cflux_y(i, j-1, 2) = 0.25*( (vstar(i,j-1)+vstar(i,j)) * &
                                       (vstar(i,j-1)+vstar(i,j)) )
@@ -216,6 +223,60 @@ contains
     
 
   end subroutine convective_fluxes_2d
+
+  subroutine diffusive_fluxes_2d(dflux_x, dflux_y, ng_f, ustar, vstar, ng_us, &
+                                 lo, hi, dx, n)
+    use bl_constants_module
+
+    integer        , intent(in   ) ::  lo(:),hi(:),ng_f,ng_us, n
+    real(kind=dp_t), intent(in   ) :: dx(:,:)
+    real(kind=dp_t), intent(inout) :: dflux_x(lo(1)-ng_f:, lo(2)-ng_f:, :)
+    real(kind=dp_t), intent(inout) :: dflux_y(lo(1)-ng_f:, lo(2)-ng_f:, :)
+    real(kind=dp_t), intent(in   ) ::    ustar(lo(1)-ng_us:, lo(2)-ng_us:)
+    real(kind=dp_t), intent(in   ) ::    vstar(lo(1)-ng_us:, lo(2)-ng_us:)
+
+    !locals
+    integer         :: i,j
+    real(kind=dp_t) :: dxi, dyi
+
+    ! initialize the flux to 0
+    dflux_x = ZERO
+    dflux_y = ZERO
+
+    dxi = 1.0d0/dx(n, 1)
+    dyi = 1.0d0/dx(n, 2)
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Compute the Diffusive fluxes for the U-Momentum equation
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    do j = lo(2),hi(2)
+       do i = lo(1), hi(1)+1
+          
+          dflux_x(i-1, j, 1) = dxi*( ustar(i,j) - ustar(i-1,j) )
+          dflux_x(i,   j, 1) = dxi*( ustar(i+1,j) - ustar(i,j) )
+
+          dflux_y(i-1, j, 1)  = dyi*( ustar(i,j) - ustar(i,j-1) )
+          dflux_y(i,   j, 1)  = dyi*( ustar(i,j+1) - ustar(i,j) )
+
+       end do
+    end do
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Compute the Diffusive fluxes for the V-Momentum equation
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    do j = lo(2), hi(2)+1
+       do i = lo(1), hi(1)
+          
+          dflux_x(i, j-1, 2) = dxi*( vstar(i,j) - vstar(i-1,j) )
+          dflux_x(i, j  , 2) = dxi*( vstar(i+1,j) - vstar(i,j) )
+
+          dflux_y(i, j-1, 2) = dyi*( vstar(i,j) - vstar(i,j-1) )
+          dflux_y(i, j  , 2) = dyi*( vstar(i,j+1) - vstar(i,j) )
+          
+       end do
+    end do
+
+  end subroutine diffusive_fluxes_2d
 
   subroutine mk_vel_force_1d(vel_force,ng_f,gpi,ng_gp, &
                              rho,ng_s, &
