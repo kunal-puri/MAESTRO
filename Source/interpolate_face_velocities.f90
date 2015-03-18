@@ -65,8 +65,6 @@ contains
           case (2)
              vtp => dataptr(ustar(n,2),i)
 
-          write(*, *) 'Interpolate', i, shape(up(:,:,1,1)), ng_u, shape(utp(:,:,1,1)), ng_ut
-
              call mkutrans_2d(up(:,:,1,:), ng_u, &
                               utp(:,:,1,1), vtp(:,:,1,1), ng_ut, &
                               lo,hi,dx(n,:),dt,&
@@ -119,6 +117,27 @@ contains
 
    end if
 
+   ! PRINTING FOR DIAGNOSTICS
+    ! do n=1,nlevs
+    !    do i=1, nfabs(u(n))
+          
+    !       up  => dataptr(u(n),i)
+    !       utp => dataptr(ustar(n,1),i)
+    !       vtp => dataptr(ustar(n,2),i)
+    !       lo  =  lwb(get_box(u(n),i))
+    !       hi  =  upb(get_box(u(n),i))
+
+   !        write(*, *) 'Interpolate', i, shape(up(:,:,1,1)), &
+            !ng_u, shape(utp(:,:,1,1)), ng_ut, lo(1), hi(1), lo(2), hi(2)
+
+    !       call print_ustar2d(up(:,:,1,:), ng_u, &
+    !            utp(:,:,1,1), vtp(:,:,1,1), ng_ut, &
+    !            lo,hi,dx(n,:),dt,&
+    !            the_bc_level(n)%adv_bc_level_array(i,:,:,:), &
+    !            the_bc_level(n)%phys_bc_level_array(i,:,:))
+    !    end do
+    ! end do
+          
     call destroy(bpt)
 
   end subroutine interpolate_face_velocities
@@ -829,5 +848,36 @@ contains
   !   deallocate(wlz,wrz)
 
   ! end subroutine mkutrans_3d
-  
+
+  subroutine print_ustar2d(u,ng_u,ustar,vtrans,ng_ut, &
+                           lo,hi,dx,dt,adv_bc,phys_bc)
+
+    use bc_module
+    use slope_module
+    use variables, only: rel_eps
+    use probin_module, only: ppm_type
+    use ppm_module
+
+    integer,         intent(in   ) :: lo(:),hi(:),ng_u,ng_ut
+    real(kind=dp_t), intent(in   ) ::      u(lo(1)-ng_u :,lo(2)-ng_u :,:)
+    real(kind=dp_t), intent(inout) :: ustar(lo(1)-ng_ut:,lo(2)-ng_ut:)
+    real(kind=dp_t), intent(inout) :: vtrans(lo(1)-ng_ut:,lo(2)-ng_ut:)
+    real(kind=dp_t), intent(in   ) :: dt,dx(:)
+    integer        , intent(in   ) :: adv_bc(:,:,:)
+    integer        , intent(in   ) :: phys_bc(:,:)
+    
+    integer :: i,j,is,js,ie,je
+    
+    is = lo(1)
+    js = lo(2)
+    ie = hi(1)
+    je = hi(2)
+    
+    do j=js,je
+       do i=is-1,ie+2
+          write(*,*) 'PRINT USTAR', i,j, ustar(i,j)
+       end do
+    end do
+  end subroutine print_ustar2d
+
 end module interpolate_face_velocities_module
