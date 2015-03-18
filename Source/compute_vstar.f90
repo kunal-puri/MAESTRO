@@ -28,7 +28,7 @@ contains
     use fill_3d_module, only: put_1d_array_on_cart
     use probin_module, only: ppm_trace_forces
 
-    use compute_rhs_module                , only: momentum_rhs
+    use compute_rhs_module                , only: momentum_flux
     use interpolate_face_velocities_module, only: interpolate_face_velocities
 
     type(multifab) , intent(in   ) :: uold(:)
@@ -39,7 +39,7 @@ contains
     type(ml_layout), intent(inout) :: mla
 
     ! local
-    type(multifab) ::  force(mla%nlevel)
+    type(multifab) ::  flux(mla%nlevel)
     type(multifab) :: utrans(mla%nlevel,mla%dim)
     type(multifab) ::  ufull(mla%nlevel)
     integer        :: n,comp,dm,nlevs
@@ -52,14 +52,8 @@ contains
     dm = mla%dim
     nlevs = mla%nlevel
 
-    do n=1,nlevs
-       call multifab_build(force(n),get_layout(uold(n)),dm,1)
-       ! tracing needs more ghost cells
-       !call multifab_build(force(n),get_layout(uold(n)),dm,uold(n)%ng)
-    end do
-
     !*************************************************************
-    !     Create the face-centered velocities
+    !     Interpolate the cell-centered velocities to the edges
     !*************************************************************
 
     do n=1,nlevs
@@ -72,18 +66,22 @@ contains
     call interpolate_face_velocities(uold, ustar, dx, dt, the_bc_level, mla)
 
     !*************************************************************
-    !     Create RHS for the Momentum equation
+    !     Create the fluxes for the Momentum equation
     !*************************************************************
-    call momentum_rhs(force, uold, utrans, sold, rho_comp, dx, the_bc_level, mla)
+    do n=1,nlevs
+       call multifab_build(flux(n),get_layout(uold(n)),dm,1)
+    end do
+
+    call momentum_flux(flux, uold, ustar, sold, rho_comp, dx, the_bc_level, mla)
 
     !*************************************************************
     !     Create the edge states to be used for the MAC velocity 
     !*************************************************************
-    call velpred(uold,ustar,utrans,force,dx,dt,the_bc_level,mla)
+    call velpred(uold,ustar,utrans,flux,dx,dt,the_bc_level,mla)
     !call velpred(uold,ufull,uface,utrans,force,w0,w0mac,dx,dt,the_bc_level,mla)
 
     do n = 1,nlevs
-       call destroy(force(n))
+       call destroy(flux(n))
        do comp=1,dm
           call destroy(utrans(n,comp))
        end do

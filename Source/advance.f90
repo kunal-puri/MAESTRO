@@ -332,6 +332,7 @@ contains
     do n=1,nlevs
        do comp=1,dm
           call multifab_build_edge(ustar(n,comp), mla%la(n),1,1,comp)
+          call setval(ustar(n,comp), ZERO, all=.true.)
        end do
     end do
     

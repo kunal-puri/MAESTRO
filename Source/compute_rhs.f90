@@ -15,11 +15,11 @@ module compute_rhs_module
   implicit none
 
   private
-  public :: momentum_rhs
+  public :: momentum_flux
 
 contains
 
-  subroutine momentum_rhs(vel_force, uold, umac, s, index_rho, dx, the_bc_level, mla)
+  subroutine momentum_flux(vel_force, uold, umac, s, index_rho, dx, the_bc_level, mla)
 
     ! index_rho refers to the index into s where the density lives.
     ! Usually s will be the full state array, and index_rho would
@@ -169,7 +169,7 @@ contains
 
     call destroy(bpt)
 
-  end subroutine momentum_rhs
+  end subroutine momentum_flux
 
   subroutine mk_vel_force_1d(vel_force,ng_f,gpi,ng_gp, &
                              rho,ng_s, &
