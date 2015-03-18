@@ -19,7 +19,7 @@ module compute_rhs_module
 
 contains
 
-  subroutine momentum_flux(cflux, dflux, uold, umac, s, index_rho, dx, the_bc_level, mla)
+  subroutine momentum_flux(cflux, dflux, uold, ustar, s, index_rho, dx, the_bc_level, mla)
 
     ! index_rho refers to the index into s where the density lives.
     ! Usually s will be the full state array, and index_rho would
@@ -34,9 +34,9 @@ contains
     use fill_3d_module, only : put_1d_array_on_cart
     use variables, only : foextrap_comp
 
-    type(multifab) , intent(inout) :: cflux(:), dflux(:)
+    type(multifab) , intent(inout) :: cflux(:,:), dflux(:,:)
     type(multifab) , intent(in   ) :: uold(:)
-    type(multifab) , intent(in   ) :: umac(:,:)
+    type(multifab) , intent(in   ) :: ustar(:,:)
     type(multifab) , intent(in   ) :: s(:)
     integer                        :: index_rho  
     real(kind=dp_t), intent(in   ) :: dx(:,:)
@@ -45,138 +45,177 @@ contains
 
     ! Local variables
     real(kind=dp_t), pointer ::  uop(:,:,:,:)
-    real(kind=dp_t), pointer ::  ump(:,:,:,:)
-    real(kind=dp_t), pointer ::  vmp(:,:,:,:)
-    real(kind=dp_t), pointer ::  wmp(:,:,:,:)
+    real(kind=dp_t), pointer ::  usp(:,:,:,:)
+    real(kind=dp_t), pointer ::  vsp(:,:,:,:)
+    real(kind=dp_t), pointer ::  wsp(:,:,:,:)
     real(kind=dp_t), pointer ::   np(:,:,:,:)
-    real(kind=dp_t), pointer :: w0cp(:,:,:,:)
-    real(kind=dp_t), pointer :: w0xp(:,:,:,:)
-    real(kind=dp_t), pointer :: w0yp(:,:,:,:)
-    real(kind=dp_t), pointer ::  gpp(:,:,:,:)
-    real(kind=dp_t), pointer ::   fp(:,:,:,:)
+
     real(kind=dp_t), pointer ::   rp(:,:,:,:)
-    real(kind=dp_t), pointer ::  w0p(:,:,:,:)
-    real(kind=dp_t), pointer :: gw0p(:,:,:,:)
 
-    ! stuff for spherical only
-    real(kind=dp_t) :: gradw0_rad(1,0:nr_fine-1)
-    type(multifab)  :: gradw0_cart(mla%nlevel)
+    integer                  :: i,r,lo(mla%dim),hi(mla%dim),dm,nlevs,comp
+    integer                  :: ng_s,ng_f,n,ng_uo,ng_us
 
-    integer                  :: i,r,lo(mla%dim),hi(mla%dim),dm,nlevs
-    integer                  :: ng_s,ng_f,ng_gp,n,ng_uo,ng_um, ng_n
+    real(kind=dp_t), pointer ::   fp_x(:,:,:,:)
+    real(kind=dp_t), pointer ::   fp_y(:,:,:,:)
    
-    type(multifab) :: w0_cart(mla%nlevel)
-    integer :: ng_wc, ng_wm, ng_w, ng_gw
-
     type(bl_prof_timer), save :: bpt
-
     call build(bpt, "compute_flux")
 
     dm = mla%dim
     nlevs = mla%nlevel
 
+    ! number of ghosts for the scalar
     ng_s  = nghost(s(1))
-    ng_f  = nghost(cflux(1))
+
+    ! number of ghosts for the convective flux
+    ng_f  = nghost(cflux(1,1))
 
     do n = 1, nlevs
-       call setval(cflux(n),ZERO,all=.true.)
-       call setval(dflux(n),ZERO,all=.true.)
+       do comp = 1,dm
+          call setval(cflux(n,comp),ZERO,all=.true.)
+          call setval(dflux(n,comp),ZERO,all=.true.)
+       end do
     end do
 
-    ! do n=1,nlevs
-    !    do i=1,nfabs(s(n))
-    !       fp  => dataptr(vel_force(n),i)
-    !       gpp => dataptr(gpi(n),i)
-    !       rp  => dataptr(s(n),i)
+    do n=1,nlevs
+       do i=1,nfabs(s(n))
 
-    !       lo = lwb(get_box(s(n),i))
-    !       hi = upb(get_box(s(n),i))
+          ! pointer to the scalars
+          rp  => dataptr(s(n),i)
 
-    !       ump => dataptr(umac(n,1),i)
-    !       ng_um = nghost(umac(1,1))
+          ! The scalars ans uold are cell-centered. lo & hi represents
+          ! the domain indices over which we compute the fluxes
+          lo = lwb(get_box(s(n),i))
+          hi = upb(get_box(s(n),i))
 
-    !       select case (dm)
-    !       case (1)
-    !          call mk_vel_force_1d(fp(:,1,1,1),ng_f,gpp(:,1,1,1),ng_gp, &
-    !                               rp(:,1,1,index_rho),ng_s, &
-    !                               ump(:,1,1,1), ng_um, &
-    !                               rho0(n,:),grav(n,:),w0(n,:),w0_force(n,:),lo,hi,n, &
-    !                               do_add_utilde_force)
+          ! pointer to the edge-centered velocities
+          usp => dataptr(ustar(n,1),i)
+          ng_us = nghost(ustar(1,1))
 
-    !       case (2)
-    !          vmp => dataptr(umac(n,2),i)
-    !          call mk_vel_force_2d(fp(:,:,1,:),ng_f,gpp(:,:,1,:),ng_gp, &
-    !                               rp(:,:,1,index_rho),ng_s, &
-    !                               vmp(:,:,1,1), ng_um, &
-    !                               rho0(n,:),grav(n,:),w0(n,:),w0_force(n,:),lo,hi,n, &
-    !                               do_add_utilde_force)
+          select case (dm)
 
-    !       case (3)
-    !          uop => dataptr(uold(n),i)
-    !          vmp => dataptr(umac(n,2),i)
-    !          wmp => dataptr(umac(n,3),i)
+          case (2)
+             vsp => dataptr(ustar(n,2),i)
+             
+             fp_x => dataptr(cflux(n,1), i)
+             fp_y => dataptr(cflux(n,2), i)
 
-    !          ng_uo = nghost(uold(1))
+             call convective_fluxes_2d(fp_x(:,:,1,:), fp_y(:,:,1,:), ng_f, &
+                                       usp(:,:,1,1), vsp(:,:,1,1), ng_us, &
+                                       lo, hi, dx, n)
+             
+          ! case (3)
+          !    uop => dataptr(uold(n),i)
+          !    vmp => dataptr(umac(n,2),i)
+          !    wmp => dataptr(umac(n,3),i)
 
-    !          if (spherical .eq. 1) then
-    !             w0cp  => dataptr(w0_cart(n), i)
-    !             w0xp  => dataptr(w0mac(n,1),i)
-    !             w0yp  => dataptr(w0mac(n,2),i)
-    !             w0p   => dataptr(w0_force_cart(n), i)
-    !             np    => dataptr(normal(n),i)
-    !             gw0p   => dataptr(gradw0_cart(n),i)
+          !    ng_uo = nghost(uold(1))
 
-    !             ng_wm = nghost(w0mac(1,1))
-    !             ng_wc = nghost(w0_cart(1))
-    !             ng_w  = nghost(w0_force_cart(1))
-    !             ng_gw = nghost(gradw0_cart(1))
-    !             ng_n  = nghost(normal(1))
-
-    !             call mk_vel_force_3d_sphr(fp(:,:,:,:),ng_f,is_final_update, &
-    !                                       uop(:,:,:,:),ng_uo,np(:,:,:,:),ng_n, &
-    !                                       ump(:,:,:,1),vmp(:,:,:,1),wmp(:,:,:,1),ng_um, &
-    !                                       w0cp(:,:,:,:),ng_wc,gw0p(:,:,:,1),ng_gw, &
-    !                                       w0xp(:,:,:,1),w0yp(:,:,:,1),ng_wm, &
-    !                                       gpp(:,:,:,:),ng_gp,rp(:,:,:,index_rho),ng_s, &
-    !                                       rho0(1,:),grav(1,:),w0p(:,:,:,:),ng_w,lo,hi,dx(n,:), &
-    !                                       do_add_utilde_force)
-
-    !          else
-    !             call mk_vel_force_3d_cart(fp(:,:,:,:),ng_f,is_final_update, &
-    !                                       uop(:,:,:,:),ng_uo, &
-    !                                       ump(:,:,:,1),vmp(:,:,:,1),wmp(:,:,:,1),ng_um, &
-    !                                       w0(n,:), &
-    !                                       gpp(:,:,:,:),ng_gp,rp(:,:,:,index_rho),ng_s, &
-    !                                       rho0(n,:),grav(n,:),w0_force(n,:),lo,hi,n, &
-    !                                       do_add_utilde_force)
-    !          end if
-    !       end select
-    !    end do
-    ! enddo
-
-    if (spherical .eq. 1) then
-       do n=1,nlevs
-          call destroy(w0_cart(n))
-          call destroy(gradw0_cart(n))
+          !    call mk_vel_force_3d_cart(fp(:,:,:,:),ng_f,is_final_update, &
+          !                              uop(:,:,:,:),ng_uo, &
+          !                              ump(:,:,:,1),vmp(:,:,:,1),wmp(:,:,:,1),ng_um, &
+          !                              w0(n,:), &
+          !                              gpp(:,:,:,:),ng_gp,rp(:,:,:,index_rho),ng_s, &
+          !                              rho0(n,:),grav(n,:),w0_force(n,:),lo,hi,n, &
+          !                              do_add_utilde_force)
+          end select
        end do
-    end if
+    enddo
 
     ! restrict data and fill all ghost cells
-    call ml_restrict_and_fill(nlevs,cflux,mla%mba%rr,the_bc_level, &
+    call ml_restrict_and_fill(nlevs,cflux(:,1),mla%mba%rr,the_bc_level, &
                               icomp=1, &
                               bcomp=1, &
                               nc=dm,   &
-                              ng=cflux(1)%ng)
+                              ng=cflux(1,1)%ng)
 
-    call ml_restrict_and_fill(nlevs,dflux,mla%mba%rr,the_bc_level, &
+    call ml_restrict_and_fill(nlevs,cflux(:,2),mla%mba%rr,the_bc_level, &
                               icomp=1, &
                               bcomp=1, &
                               nc=dm,   &
-                              ng=dflux(1)%ng)
+                              ng=cflux(1,1)%ng)
+
+    call ml_restrict_and_fill(nlevs,dflux(:,1),mla%mba%rr,the_bc_level, &
+                              icomp=1, &
+                              bcomp=1, &
+                              nc=dm,   &
+                              ng=dflux(1,1)%ng)
+
+    call ml_restrict_and_fill(nlevs,dflux(:,2),mla%mba%rr,the_bc_level, &
+                              icomp=1, &
+                              bcomp=1, &
+                              nc=dm,   &
+                              ng=dflux(1,1)%ng)
 
     call destroy(bpt)
 
   end subroutine momentum_flux
+
+  subroutine convective_fluxes_2d(cflux_x, cflux_y, ng_f, ustar, vstar, ng_us, &
+                                  lo, hi, dx, n)
+    use bl_constants_module
+
+    integer        , intent(in   ) ::  lo(:),hi(:),ng_f,ng_us, n
+    real(kind=dp_t), intent(in   ) :: dx(:,:)
+    real(kind=dp_t), intent(inout) :: cflux_x(lo(1)-ng_f:, lo(2)-ng_f:, :)
+    real(kind=dp_t), intent(inout) :: cflux_y(lo(1)-ng_f:, lo(2)-ng_f:, :)
+    real(kind=dp_t), intent(in   ) ::    ustar(lo(1)-ng_us:, lo(2)-ng_us:)
+    real(kind=dp_t), intent(in   ) ::    vstar(lo(1)-ng_us:, lo(2)-ng_us:)
+
+    !locals
+    integer         :: i,j
+    real(kind=dp_t) :: dxi, dyi
+
+    ! initialize the flux to 0
+    cflux_x = ZERO
+    cflux_y = ZERO
+
+    dxi = 1.0d0/dx(n, 1)
+    dyi = 1.0d0/dx(n, 2)
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Compute the Convective fluxes for the U-Momentum equation
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    do j = lo(2),hi(2)
+       do i = lo(1), hi(1)+1
+          
+          cflux_x(i-1, j, 1) = 0.25*( (ustar(i-1,j)+ustar(i,j)) * &
+                                      (ustar(i-1,j)+ustar(i,j)) )
+
+          cflux_x(i, j, 1)   = 0.25*( (ustar(i,j)+ustar(i+1,j)) * &
+                                      (ustar(i,j)+ustar(i+1,j)) )
+
+          cflux_y(i-1, j, 1) = 0.25*( (vstar(i,j-1)+vstar(i-1,j-1)) * &
+                                      (ustar(i,j)+ustar(i,j-1)) )
+          
+          cflux_y(i, j, 1)   = 0.25*( (vstar(i,j)+vstar(i-1,j)) * &
+                                      (ustar(i,j)+ustar(i,j+1)) )
+
+       end do
+    end do
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Compute the Convective fluxes for the V-Momentum equation
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    do j = lo(2), hi(2)+1
+       do i = lo(1), hi(1)
+          
+          cflux_x(i, j-1, 2) = 0.25*( (ustar(i-1,j)+ustar(i-1,j-1)) * &
+                                      (vstar(i-1,j-1)+vstar(i,j-1)) )
+
+          cflux_x(i, j, 2)   = 0.25*( (ustar(i,j)+ustar(i,j-1)) * &
+                                      (vstar(i,j-1)+vstar(i+1,j-1)) )
+
+          cflux_y(i, j-1, 2) = 0.25*( (vstar(i,j-1)+vstar(i,j)) * &
+                                      (vstar(i,j-1)+vstar(i,j)) )
+
+          cflux_y(i, j, 2  ) = 0.25*( (vstar(i,j)+vstar(i,j+1)) * &
+                                      (vstar(i,j)+vstar(i,j+1)) )   
+       end do
+    end do
+    
+
+  end subroutine convective_fluxes_2d
 
   subroutine mk_vel_force_1d(vel_force,ng_f,gpi,ng_gp, &
                              rho,ng_s, &
@@ -218,389 +257,213 @@ contains
 
     end do
 
-    if (do_add_utilde_force) then
-       do i=lo(1),hi(1)
-
-          if (i .le. -1) then
-             ! do not modify force since dw0/dr=0                                                                          
-          else if (i .ge. nr(n)) then
-             ! do not modify force since dw0/dr=0                                                                          
-          else
-             vel_force(i) = vel_force(i) &
-                  - (umac(i+1)+umac(i))*(w0(i+1)-w0(i)) / (TWO*dr(n))
-          end if
-
-       enddo
-    endif
-
-
   end subroutine mk_vel_force_1d
 
-  subroutine mk_vel_force_2d(vel_force,ng_f,gpi,ng_gp, &
-                             rho,ng_s, &
-                             vmac, ng_um, &
-                             rho0,grav,w0,w0_force,lo,hi,n, &
-                             do_add_utilde_force)
+  ! subroutine mk_vel_force_2d(vel_force,ng_f,gpi,ng_gp, &
+  !                            rho,ng_s, &
+  !                            vmac, ng_um, &
+  !                            rho0,grav,w0,w0_force,lo,hi,n, &
+  !                            do_add_utilde_force)
 
-    use geometry, only: nr, dr
-    use bl_constants_module
-    use probin_module, only: base_cutoff_density, buoyancy_cutoff_factor
+  !   use geometry, only: nr, dr
+  !   use bl_constants_module
+  !   use probin_module, only: base_cutoff_density, buoyancy_cutoff_factor
 
-    integer        , intent(in   ) ::  lo(:),hi(:),ng_f,ng_gp,ng_s,ng_um, n
-    real(kind=dp_t), intent(inout) :: vel_force(lo(1)-ng_f :,lo(2)-ng_f :,:)
-    real(kind=dp_t), intent(in   ) ::     gpi(lo(1)-ng_gp:,lo(2)-ng_gp:,:)
-    real(kind=dp_t), intent(in   ) ::     rho(lo(1)-ng_s :,lo(2)-ng_s :)
-    real(kind=dp_t), intent(in   ) ::    vmac(lo(1)-ng_um:,lo(2)-ng_um:)
-    real(kind=dp_t), intent(in   ) :: rho0(0:)
-    real(kind=dp_t), intent(in   ) :: grav(0:)
-    real(kind=dp_t), intent(in   ) :: w0(0:),w0_force(0:)
-    logical        , intent(in   ) :: do_add_utilde_force
+  !   integer        , intent(in   ) ::  lo(:),hi(:),ng_f,ng_gp,ng_s,ng_um, n
+  !   real(kind=dp_t), intent(inout) :: vel_force(lo(1)-ng_f :,lo(2)-ng_f :,:)
+  !   real(kind=dp_t), intent(in   ) ::     gpi(lo(1)-ng_gp:,lo(2)-ng_gp:,:)
+  !   real(kind=dp_t), intent(in   ) ::     rho(lo(1)-ng_s :,lo(2)-ng_s :)
+  !   real(kind=dp_t), intent(in   ) ::    vmac(lo(1)-ng_um:,lo(2)-ng_um:)
+  !   real(kind=dp_t), intent(in   ) :: rho0(0:)
+  !   real(kind=dp_t), intent(in   ) :: grav(0:)
+  !   real(kind=dp_t), intent(in   ) :: w0(0:),w0_force(0:)
+  !   logical        , intent(in   ) :: do_add_utilde_force
 
-    integer         :: i,j
-    real(kind=dp_t) :: rhopert
+  !   integer         :: i,j
+  !   real(kind=dp_t) :: rhopert
 
-    vel_force = ZERO
+  !   vel_force = ZERO
 
-    do j = lo(2),hi(2)
-       do i = lo(1),hi(1)
+  !   do j = lo(2),hi(2)
+  !      do i = lo(1),hi(1)
 
-          rhopert = rho(i,j) - rho0(j)
+  !         rhopert = rho(i,j) - rho0(j)
           
-          ! cutoff the buoyancy term if we are outside of the star
-          if (rho(i,j) .lt. buoyancy_cutoff_factor*base_cutoff_density) then
-             rhopert = 0.d0
-          end if
+  !         ! cutoff the buoyancy term if we are outside of the star
+  !         if (rho(i,j) .lt. buoyancy_cutoff_factor*base_cutoff_density) then
+  !            rhopert = 0.d0
+  !         end if
 
-          ! note: if use_alt_energy_fix = T, then gphi is already weighted
-          ! by beta_0
-          vel_force(i,j,1) = - gpi(i,j,1) / rho(i,j)
-          vel_force(i,j,2) =  rhopert / rho(i,j) * grav(j) &
-               - gpi(i,j,2) / rho(i,j) - w0_force(j)
-       end do
-    end do
+  !         ! note: if use_alt_energy_fix = T, then gphi is already weighted
+  !         ! by beta_0
+  !         vel_force(i,j,1) = - gpi(i,j,1) / rho(i,j)
+  !         vel_force(i,j,2) =  rhopert / rho(i,j) * grav(j) &
+  !              - gpi(i,j,2) / rho(i,j) - w0_force(j)
+  !      end do
+  !   end do
 
-    if (do_add_utilde_force) then
+  !   if (do_add_utilde_force) then
 
-       do j=lo(2),hi(2)
-          do i=lo(1),hi(1)
+  !      do j=lo(2),hi(2)
+  !         do i=lo(1),hi(1)
 
-             if (j .le. -1) then
-                ! do not modify force since dw0/dr=0                                                                       
-             else if (j .ge. nr(n)) then
-                ! do not modify force since dw0/dr=0                                                                       
-             else
-                vel_force(i,j,2) = vel_force(i,j,2) &
-                     - (vmac(i,j+1)+vmac(i,j))*(w0(j+1)-w0(j)) / (TWO*dr(n))
-             end if
+  !            if (j .le. -1) then
+  !               ! do not modify force since dw0/dr=0                                                                       
+  !            else if (j .ge. nr(n)) then
+  !               ! do not modify force since dw0/dr=0                                                                       
+  !            else
+  !               vel_force(i,j,2) = vel_force(i,j,2) &
+  !                    - (vmac(i,j+1)+vmac(i,j))*(w0(j+1)-w0(j)) / (TWO*dr(n))
+  !            end if
           
-          end do
-       end do
+  !         end do
+  !      end do
 
-    endif
+  !   endif
 
 
-  end subroutine mk_vel_force_2d
+  ! end subroutine mk_vel_force_2d
 
-  subroutine mk_vel_force_3d_cart(vel_force,ng_f,is_final_update, &
-                                  uold,ng_uo, &
-                                  umac,vmac,wmac,ng_um, &
-                                  w0, &
-                                  gpi,ng_gp,rho,ng_s, &
-                                  rho0,grav,w0_force,lo,hi,n, &
-                                  do_add_utilde_force)
+  ! subroutine mk_vel_force_3d_cart(vel_force,ng_f,is_final_update, &
+  !                                 uold,ng_uo, &
+  !                                 umac,vmac,wmac,ng_um, &
+  !                                 w0, &
+  !                                 gpi,ng_gp,rho,ng_s, &
+  !                                 rho0,grav,w0_force,lo,hi,n, &
+  !                                 do_add_utilde_force)
 
-    use geometry,  only: sin_theta, cos_theta, omega, nr, dr
-    use bl_constants_module
-    use probin_module, only: base_cutoff_density, buoyancy_cutoff_factor, &
-                             rotation_radius
+  !   use geometry,  only: sin_theta, cos_theta, omega, nr, dr
+  !   use bl_constants_module
+  !   use probin_module, only: base_cutoff_density, buoyancy_cutoff_factor, &
+  !                            rotation_radius
 
-    integer        , intent(in   ) ::  lo(:),hi(:),ng_f,ng_gp,ng_s, ng_uo, ng_um, n
-    real(kind=dp_t), intent(inout) :: vel_force(lo(1)-ng_f :,lo(2)-ng_f :,lo(3)-ng_f :,:)
-    logical        , intent(in   ) :: is_final_update
-    real(kind=dp_t), intent(in   ) ::      uold(lo(1)-ng_uo:,lo(2)-ng_uo:,lo(3)-ng_uo:,:)
-    real(kind=dp_t), intent(in   ) ::      umac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
-    real(kind=dp_t), intent(in   ) ::      vmac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
-    real(kind=dp_t), intent(in   ) ::      wmac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
-    real(kind=dp_t), intent(in   ) ::   w0(0:)
-    real(kind=dp_t), intent(in   ) ::     gpi(lo(1)-ng_gp:,lo(2)-ng_gp:,lo(3)-ng_gp:,:)
-    real(kind=dp_t), intent(in   ) ::       rho(lo(1)-ng_s :,lo(2)-ng_s :,lo(3)-ng_s :)
-    real(kind=dp_t), intent(in   ) :: rho0(0:)
-    real(kind=dp_t), intent(in   ) :: grav(0:)
-    real(kind=dp_t), intent(in   ) :: w0_force(0:)
-    logical        , intent(in   ) :: do_add_utilde_force
+  !   integer        , intent(in   ) ::  lo(:),hi(:),ng_f,ng_gp,ng_s, ng_uo, ng_um, n
+  !   real(kind=dp_t), intent(inout) :: vel_force(lo(1)-ng_f :,lo(2)-ng_f :,lo(3)-ng_f :,:)
+  !   logical        , intent(in   ) :: is_final_update
+  !   real(kind=dp_t), intent(in   ) ::      uold(lo(1)-ng_uo:,lo(2)-ng_uo:,lo(3)-ng_uo:,:)
+  !   real(kind=dp_t), intent(in   ) ::      umac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
+  !   real(kind=dp_t), intent(in   ) ::      vmac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
+  !   real(kind=dp_t), intent(in   ) ::      wmac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
+  !   real(kind=dp_t), intent(in   ) ::   w0(0:)
+  !   real(kind=dp_t), intent(in   ) ::     gpi(lo(1)-ng_gp:,lo(2)-ng_gp:,lo(3)-ng_gp:,:)
+  !   real(kind=dp_t), intent(in   ) ::       rho(lo(1)-ng_s :,lo(2)-ng_s :,lo(3)-ng_s :)
+  !   real(kind=dp_t), intent(in   ) :: rho0(0:)
+  !   real(kind=dp_t), intent(in   ) :: grav(0:)
+  !   real(kind=dp_t), intent(in   ) :: w0_force(0:)
+  !   logical        , intent(in   ) :: do_add_utilde_force
 
-    integer         :: i,j,k
-    real(kind=dp_t) :: rhopert
+  !   integer         :: i,j,k
+  !   real(kind=dp_t) :: rhopert
 
-    real(kind=dp_t) :: coriolis_term(3), centrifugal_term(3)
+  !   real(kind=dp_t) :: coriolis_term(3), centrifugal_term(3)
 
-    vel_force = ZERO
+  !   vel_force = ZERO
 
-    ! CURRENTLY for rotation in plane-parallel, we make the (bad) assumption 
-    ! that all points within the patch have the same centrifugal forcing terms.
-    !
-    ! We assume the centrifugal term applies at a constant radius, 
-    ! rotation_radius, for the patch.  In otherwords, the patch lives on the
-    ! surface of a sphere of radius rotation_radius.
-    !
-    ! Furthermore, we assume the patch lives at longitude = 0.
-    !
-    ! Then the orientation of the patch is such that e_z is in the 
-    ! outward radial direction of the star, e_x is in the co_latitude (polar) 
-    ! angle direction and e_y is in the global y-direction.
-    !
-    ! centrifugal_term = omega x (omega x r) = (omega dot r) * omega
-    !                                          - omega^2 * r
-    ! where omega = (-|omega| sin_theta) e_x + (|omega| cos_theta) e_z
-    !           r = rotation_radius e_z
-    !
-    ! See docs/rotation for derivation and figures.
-    ! 
+  !   ! CURRENTLY for rotation in plane-parallel, we make the (bad) assumption 
+  !   ! that all points within the patch have the same centrifugal forcing terms.
+  !   !
+  !   ! We assume the centrifugal term applies at a constant radius, 
+  !   ! rotation_radius, for the patch.  In otherwords, the patch lives on the
+  !   ! surface of a sphere of radius rotation_radius.
+  !   !
+  !   ! Furthermore, we assume the patch lives at longitude = 0.
+  !   !
+  !   ! Then the orientation of the patch is such that e_z is in the 
+  !   ! outward radial direction of the star, e_x is in the co_latitude (polar) 
+  !   ! angle direction and e_y is in the global y-direction.
+  !   !
+  !   ! centrifugal_term = omega x (omega x r) = (omega dot r) * omega
+  !   !                                          - omega^2 * r
+  !   ! where omega = (-|omega| sin_theta) e_x + (|omega| cos_theta) e_z
+  !   !           r = rotation_radius e_z
+  !   !
+  !   ! See docs/rotation for derivation and figures.
+  !   ! 
 
-    centrifugal_term(1) = - omega**2 * rotation_radius * sin_theta * sin_theta
-    centrifugal_term(2) = ZERO
-    centrifugal_term(3) = omega**2 * rotation_radius * cos_theta * sin_theta &
-                          - omega**2 * rotation_radius
+  !   centrifugal_term(1) = - omega**2 * rotation_radius * sin_theta * sin_theta
+  !   centrifugal_term(2) = ZERO
+  !   centrifugal_term(3) = omega**2 * rotation_radius * cos_theta * sin_theta &
+  !                         - omega**2 * rotation_radius
 
-    !$OMP PARALLEL DO PRIVATE(i,j,k,rhopert,coriolis_term)
-    do k = lo(3),hi(3)
-       do j = lo(2),hi(2)
-          do i = lo(1),hi(1)
+  !   !$OMP PARALLEL DO PRIVATE(i,j,k,rhopert,coriolis_term)
+  !   do k = lo(3),hi(3)
+  !      do j = lo(2),hi(2)
+  !         do i = lo(1),hi(1)
 
-             rhopert = rho(i,j,k) - rho0(k)
+  !            rhopert = rho(i,j,k) - rho0(k)
              
-             ! cutoff the buoyancy term if we are outside of the star
-             if (rho(i,j,k) .lt. buoyancy_cutoff_factor*base_cutoff_density) then
-                rhopert = 0.d0
-             end if
+  !            ! cutoff the buoyancy term if we are outside of the star
+  !            if (rho(i,j,k) .lt. buoyancy_cutoff_factor*base_cutoff_density) then
+  !               rhopert = 0.d0
+  !            end if
 
-             ! the coriolis term is:
-             !    TWO * omega x U
-             ! where omega is given above and U = (u, v, w) is the velocity
+  !            ! the coriolis term is:
+  !            !    TWO * omega x U
+  !            ! where omega is given above and U = (u, v, w) is the velocity
 
-             if (is_final_update) then
+  !            if (is_final_update) then
 
-                ! use umac so we are time-centered
-                coriolis_term(1) = -TWO * omega * &
-                     HALF*(vmac(i,j,k) + vmac(i,j+1,k)) * cos_theta
+  !               ! use umac so we are time-centered
+  !               coriolis_term(1) = -TWO * omega * &
+  !                    HALF*(vmac(i,j,k) + vmac(i,j+1,k)) * cos_theta
 
-                coriolis_term(2) =  TWO * omega * &
-                     (HALF*(wmac(i,j,k)   + w0(k) + &
-                            wmac(i,j,k+1) + w0(k+1)) * sin_theta + &
-                      HALF*(umac(i,j,k) + umac(i+1,j,k)) * cos_theta)
+  !               coriolis_term(2) =  TWO * omega * &
+  !                    (HALF*(wmac(i,j,k)   + w0(k) + &
+  !                           wmac(i,j,k+1) + w0(k+1)) * sin_theta + &
+  !                     HALF*(umac(i,j,k) + umac(i+1,j,k)) * cos_theta)
 
-                coriolis_term(3) = -TWO * omega * &
-                     HALF*(vmac(i,j,k) + vmac(i,j+1,k)) * sin_theta
+  !               coriolis_term(3) = -TWO * omega * &
+  !                    HALF*(vmac(i,j,k) + vmac(i,j+1,k)) * sin_theta
 
-             else
-                coriolis_term(1) = -TWO * omega * uold(i,j,k,2) * cos_theta
+  !            else
+  !               coriolis_term(1) = -TWO * omega * uold(i,j,k,2) * cos_theta
 
-                coriolis_term(2) =  TWO * omega * ((uold(i,j,k,3) + HALF*(w0(k) + w0(k+1))) * sin_theta + &
-                                                   uold(i,j,k,1) * cos_theta)
+  !               coriolis_term(2) =  TWO * omega * ((uold(i,j,k,3) + HALF*(w0(k) + w0(k+1))) * sin_theta + &
+  !                                                  uold(i,j,k,1) * cos_theta)
 
-                coriolis_term(3) = -TWO * omega * uold(i,j,k,2) * sin_theta
-             endif
+  !               coriolis_term(3) = -TWO * omega * uold(i,j,k,2) * sin_theta
+  !            endif
 
-             ! note: if use_alt_energy_fix = T, then gphi is already
-             ! weighted by beta_0
-             vel_force(i,j,k,1) = -coriolis_term(1) - centrifugal_term(1) - &
-                  gpi(i,j,k,1) / rho(i,j,k) 
+  !            ! note: if use_alt_energy_fix = T, then gphi is already
+  !            ! weighted by beta_0
+  !            vel_force(i,j,k,1) = -coriolis_term(1) - centrifugal_term(1) - &
+  !                 gpi(i,j,k,1) / rho(i,j,k) 
 
-             vel_force(i,j,k,2) = -coriolis_term(2) - centrifugal_term(2) - &
-                  gpi(i,j,k,2) / rho(i,j,k) 
+  !            vel_force(i,j,k,2) = -coriolis_term(2) - centrifugal_term(2) - &
+  !                 gpi(i,j,k,2) / rho(i,j,k) 
 
-             vel_force(i,j,k,3) = -coriolis_term(3) - centrifugal_term(3) + &
-                  ( rhopert * grav(k) - gpi(i,j,k,3) ) / rho(i,j,k) &
-                  - w0_force(k)
+  !            vel_force(i,j,k,3) = -coriolis_term(3) - centrifugal_term(3) + &
+  !                 ( rhopert * grav(k) - gpi(i,j,k,3) ) / rho(i,j,k) &
+  !                 - w0_force(k)
 
-          end do
-       end do
-    end do
-    !$OMP END PARALLEL DO
-
-
-    if (do_add_utilde_force) then
-       !$OMP PARALLEL DO PRIVATE(i,j,k)
-       do k=lo(3),hi(3)
-          do j=lo(2),hi(2)
-             do i=lo(1),hi(1)
-
-                if (k .le. -1) then
-                   ! do not modify force since dw0/dr=0
-                else if (k .ge. nr(n)) then
-                   ! do not modify force since dw0/dr=0
-                else
-                   vel_force(i,j,k,3) = vel_force(i,j,k,3) &
-                        - (wmac(i,j,k+1)+wmac(i,j,k))*(w0(k+1)-w0(k)) / (TWO*dr(n))
-                end if
-
-             end do
-          end do
-       end do
-       !$OMP END PARALLEL DO
-
-    endif
-
-  end subroutine mk_vel_force_3d_cart
-
-  subroutine mk_vel_force_3d_sphr(vel_force,ng_f,is_final_update, &
-                                  uold,ng_uo,normal,ng_n, &
-                                  umac,vmac,wmac,ng_um, &
-                                  w0_cart,ng_wc,gradw0_cart,ng_gw, &
-                                  w0macx,w0macy,ng_wm, &
-                                  gpi,ng_gp,rho,ng_s, &
-                                  rho0,grav,w0_force_cart,ng_w,lo,hi,dx, &
-                                  do_add_utilde_force)
-
-    use fill_3d_module
-    use bl_constants_module
-    use geometry,  only: omega, center
-    use probin_module, only: base_cutoff_density, buoyancy_cutoff_factor, prob_lo
-
-    integer        , intent(in   ) :: lo(:),hi(:),ng_f,ng_gp,ng_s,ng_uo,ng_um,ng_wc,ng_wm,ng_w,ng_n,ng_gw
-    real(kind=dp_t), intent(inout) :: vel_force(lo(1)-ng_f :,lo(2)-ng_f :,lo(3)-ng_f :,:)
-    logical        , intent(in   ) :: is_final_update
-    real(kind=dp_t), intent(in   ) ::       uold(lo(1)-ng_uo:,lo(2)-ng_uo:,lo(3)-ng_uo:,:)
-    real(kind=dp_t), intent(in   ) ::     normal(lo(1)-ng_n :,lo(2)-ng_n :,lo(3)-ng_n :,:)
-    real(kind=dp_t), intent(in   ) ::       umac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
-    real(kind=dp_t), intent(in   ) ::       vmac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
-    real(kind=dp_t), intent(in   ) ::       wmac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
-    real(kind=dp_t), intent(in   ) ::    w0_cart(lo(1)-ng_wc:,lo(2)-ng_wc:,lo(3)-ng_wc:,:)
-    real(kind=dp_t), intent(in   ) ::gradw0_cart(lo(1)-ng_wc:,lo(2)-ng_wc:,lo(3)-ng_wc:)
-    real(kind=dp_t), intent(in   ) ::     w0macx(lo(1)-ng_wm:,lo(2)-ng_wm:,lo(3)-ng_wm:)
-    real(kind=dp_t), intent(in   ) ::     w0macy(lo(1)-ng_wm:,lo(2)-ng_wm:,lo(3)-ng_wm:)
-    real(kind=dp_t), intent(in   ) ::        gpi(lo(1)-ng_gp:,lo(2)-ng_gp:,lo(3)-ng_gp:,:)
-    real(kind=dp_t), intent(in   ) ::        rho(lo(1)-ng_s :,lo(2)-ng_s :,lo(3)-ng_s :)
-    real(kind=dp_t), intent(in   ) :: w0_force_cart(lo(1)-ng_w:,lo(2)-ng_w:,lo(3)-ng_w:,:)
-    real(kind=dp_t), intent(in   ) :: rho0(0:)
-    real(kind=dp_t), intent(in   ) :: grav(0:)
-    real(kind=dp_t), intent(in   ) ::   dx(:)
-    logical        , intent(in   ) :: do_add_utilde_force
-
-    integer         :: i,j,k
-
-    real(kind=dp_t), allocatable :: rho0_cart(:,:,:,:)
-    real(kind=dp_t), allocatable :: grav_cart(:,:,:,:)
-
-    real(kind=dp_t) :: rhopert
-    real(kind=dp_t) :: xx, yy, zz
-    real(kind=dp_t) :: centrifugal_term(3), coriolis_term(3)
-
-    real(kind=dp_t) :: Ut_dot_er
-
-    allocate(rho0_cart(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3),1))
-    allocate(grav_cart(lo(1):hi(1),lo(2):hi(2),lo(3):hi(3),3))
-
-    vel_force = ZERO
-
-    call put_1d_array_on_cart_3d_sphr(.false.,.false.,rho0,rho0_cart,lo,hi,dx,0)
-    call put_1d_array_on_cart_3d_sphr(.false.,.true.,grav,grav_cart,lo,hi,dx,0)
-
-    !$OMP PARALLEL DO PRIVATE(i,j,k,xx,yy,zz,rhopert,centrifugal_term,coriolis_term)
-    do k = lo(3),hi(3)
-       zz = prob_lo(3) + (dble(k) + HALF)*dx(3) - center(3)
-       do j = lo(2),hi(2)
-          yy = prob_lo(2) + (dble(j) + HALF)*dx(2) - center(2)
-          do i = lo(1),hi(1)
-             xx = prob_lo(1) + (dble(i) + HALF)*dx(1) - center(1)
-
-             rhopert = rho(i,j,k) - rho0_cart(i,j,k,1)
-
-             ! cutoff the buoyancy term if we are outside of the star
-             if (rho(i,j,k) .lt. buoyancy_cutoff_factor*base_cutoff_density) then
-                rhopert = 0.d0
-             end if
+  !         end do
+  !      end do
+  !   end do
+  !   !$OMP END PARALLEL DO
 
 
-             ! Coriolis and centrifugal forces.  We assume that the
-             ! rotation axis is the z direction, with angular velocity
-             ! omega
+  !   if (do_add_utilde_force) then
+  !      !$OMP PARALLEL DO PRIVATE(i,j,k)
+  !      do k=lo(3),hi(3)
+  !         do j=lo(2),hi(2)
+  !            do i=lo(1),hi(1)
 
-             ! omega x (omega x r ) = - omega^2 x e_x  - omega^2 y e_y    
-             ! (with omega = omega e_z)
-             centrifugal_term(1) = -omega * omega * xx
-             centrifugal_term(2) = -omega * omega * yy
-             centrifugal_term(3) = ZERO
+  !               if (k .le. -1) then
+  !                  ! do not modify force since dw0/dr=0
+  !               else if (k .ge. nr(n)) then
+  !                  ! do not modify force since dw0/dr=0
+  !               else
+  !                  vel_force(i,j,k,3) = vel_force(i,j,k,3) &
+  !                       - (wmac(i,j,k+1)+wmac(i,j,k))*(w0(k+1)-w0(k)) / (TWO*dr(n))
+  !               end if
 
-             ! cutoff the centrifugal term if we are outside the star
-             if (rho(i,j,k) .lt. buoyancy_cutoff_factor*base_cutoff_density) then
-                centrifugal_term(:) = 0.d0
-             end if
+  !            end do
+  !         end do
+  !      end do
+  !      !$OMP END PARALLEL DO
 
+  !   endif
 
-             ! 2 omega x U = - 2 omega v e_x  + 2 omega u e_y
-             ! (with omega = omega e_z)
-             if (is_final_update) then
-
-                ! use umac so we are time-centered
-                coriolis_term(1) = -TWO * omega * &
-                     HALF*(vmac(i,j,k)   + w0macy(i,j,k) + &
-                           vmac(i,j+1,k) + w0macy(i,j+1,k))
-
-                coriolis_term(2) =  TWO * omega * &
-                     HALF*(umac(i,j,k)   + w0macx(i,j,k) + &
-                           umac(i+1,j,k) + w0macx(i+1,j,k))
-
-                coriolis_term(3) = ZERO
-
-             else
-                coriolis_term(1) = -TWO * omega * (uold(i,j,k,2) + w0_cart(i,j,k,2))
-                coriolis_term(2) =  TWO * omega * (uold(i,j,k,1) + w0_cart(i,j,k,1))
-                coriolis_term(3) = ZERO
-             endif
-
-
-             ! F_Coriolis = -2 omega x U  
-             ! F_centrifugal = - omega x (omega x r)
-
-             ! we just computed the absolute value of the forces above, so use
-             ! the right sign here
-
-             ! note: if use_alt_energy_fix = T, then gphi is already weighted
-             ! by beta_0
-             vel_force(i,j,k,1) = -coriolis_term(1) - centrifugal_term(1) + &
-                  ( rhopert * grav_cart(i,j,k,1) - gpi(i,j,k,1) ) / rho(i,j,k) &
-                  - w0_force_cart(i,j,k,1)
-
-             vel_force(i,j,k,2) = -coriolis_term(2) - centrifugal_term(2) + &
-                  ( rhopert * grav_cart(i,j,k,2) - gpi(i,j,k,2) ) / rho(i,j,k) &
-                  - w0_force_cart(i,j,k,2)
-
-             vel_force(i,j,k,3) = -coriolis_term(3) - centrifugal_term(3) + &
-                  ( rhopert * grav_cart(i,j,k,3) - gpi(i,j,k,3) ) / rho(i,j,k) &
-                  - w0_force_cart(i,j,k,3)
-
-          end do
-       end do
-    end do
-    !$OMP END PARALLEL DO
-
-
-    if (do_add_utilde_force) then
-
-       !$OMP PARALLEL DO PRIVATE(i,j,k,Ut_dot_er)
-       do k=lo(3),hi(3)
-          do j=lo(2),hi(2)
-             do i=lo(1),hi(1)
-
-                Ut_dot_er = &
-                     HALF*(umac(i,j,k)+umac(i+1,j  ,k  ))*normal(i,j,k,1) + &
-                     HALF*(vmac(i,j,k)+vmac(i  ,j+1,k  ))*normal(i,j,k,2) + &
-                     HALF*(wmac(i,j,k)+wmac(i  ,j,  k+1))*normal(i,j,k,3)
-
-                vel_force(i,j,k,1) = vel_force(i,j,k,1) - Ut_dot_er*gradw0_cart(i,j,k)*normal(i,j,k,1)
-                vel_force(i,j,k,2) = vel_force(i,j,k,2) - Ut_dot_er*gradw0_cart(i,j,k)*normal(i,j,k,2)
-                vel_force(i,j,k,3) = vel_force(i,j,k,3) - Ut_dot_er*gradw0_cart(i,j,k)*normal(i,j,k,3)
-
-             end do
-          end do
-       end do
-       !$OMP END PARALLEL DO
-
-    endif
-
-    deallocate(rho0_cart,grav_cart)
-
-  end subroutine mk_vel_force_3d_sphr
+  ! end subroutine mk_vel_force_3d_cart
 
 end module compute_rhs_module
