@@ -14,7 +14,7 @@ module interpolate_face_velocities_module
 
 contains
 
-  subroutine interpolate_face_velocities(u,utrans,dx,dt,the_bc_level,mla)
+  subroutine interpolate_face_velocities(u,ustar,dx,dt,the_bc_level,mla)
 
     use bl_prof_module
     use create_umac_grown_module
@@ -23,7 +23,7 @@ contains
     use multifab_physbc_edgevel_module, only: multifab_physbc_edgevel
 
     type(multifab) , intent(in   ) :: u(:)
-    type(multifab) , intent(inout) :: utrans(:,:)
+    type(multifab) , intent(inout) :: ustar(:,:)
     real(kind=dp_t), intent(in   ) :: dx(:,:),dt
     type(bc_level) , intent(in   ) :: the_bc_level(:)
     type(ml_layout), intent(in   ) :: mla
@@ -44,16 +44,17 @@ contains
     nlevs = mla%nlevel
 
     ng_u  = nghost(u(1))
-    ng_ut = nghost(utrans(1,1))
+    ng_ut = nghost(ustar(1,1))
 
     do n=1,nlevs
 
        do i=1, nfabs(u(n))
           
           up  => dataptr(u(n),i)
-          utp => dataptr(utrans(n,1),i)
+          utp => dataptr(ustar(n,1),i)
           lo  =  lwb(get_box(u(n),i))
           hi  =  upb(get_box(u(n),i))
+
           select case (dm)
           case (1)
              call mkutrans_1d(up(:,1,1,:), ng_u, &
@@ -62,7 +63,9 @@ contains
                               the_bc_level(n)%adv_bc_level_array(i,:,:,:), &
                               the_bc_level(n)%phys_bc_level_array(i,:,:))
           case (2)
-             vtp => dataptr(utrans(n,2),i)
+             vtp => dataptr(ustar(n,2),i)
+
+          write(*, *) 'Interpolate', i, shape(up(:,:,1,1)), ng_u, shape(utp(:,:,1,1)), ng_ut
 
              call mkutrans_2d(up(:,:,1,:), ng_u, &
                               utp(:,:,1,1), vtp(:,:,1,1), ng_ut, &
@@ -70,8 +73,8 @@ contains
                               the_bc_level(n)%adv_bc_level_array(i,:,:,:), &
                               the_bc_level(n)%phys_bc_level_array(i,:,:))
           ! case (3)
-          !    vtp => dataptr(utrans(n,2),i)
-          !    wtp => dataptr(utrans(n,3), i)
+          !    vtp => dataptr(ustar(n,2),i)
+          !    wtp => dataptr(ustar(n,3), i)
           !    n_1d = n
           !    call mkutrans_3d(up(:,:,:,:), ng_u, &
           !                     utp(:,:,:,1), vtp(:,:,:,1), wtp(:,:,:,1), ng_ut, &
@@ -87,11 +90,11 @@ contains
        ! fill ghost cells for two adjacent grids at the same level
        ! this includes periodic domain boundary ghost cells
       do i=1,dm
-         call multifab_fill_boundary(utrans(nlevs,i))
+         call multifab_fill_boundary(ustar(nlevs,i))
       enddo
       
       ! fill non-periodic domain boundary ghost cells
-      call multifab_physbc_edgevel(utrans(nlevs,:),the_bc_level(nlevs))
+      call multifab_physbc_edgevel(ustar(nlevs,:),the_bc_level(nlevs))
 
    else
 
@@ -101,7 +104,7 @@ contains
          ! set level n-1 data to be the average of the level n data
          ! covering it
          do i=1,dm
-            call ml_edge_restriction(utrans(n-1,i),utrans(n,i),mla%mba%rr(n-1,:),i)
+            call ml_edge_restriction(ustar(n-1,i),ustar(n,i),mla%mba%rr(n-1,:),i)
          enddo
       end do
       
@@ -110,7 +113,7 @@ contains
          ! n-1 data note that multifab_fill_boundary and
          ! multifab_physbc_edgevel are called for level n and level 1
          ! (if n=2)
-         call create_umac_grown(utrans(n,:),utrans(n-1,:),the_bc_level(n-1),the_bc_level(n),&
+         call create_umac_grown(ustar(n,:),ustar(n-1,:),the_bc_level(n-1),the_bc_level(n),&
               n.eq.nlevs)
       end do
 
@@ -120,7 +123,7 @@ contains
 
   end subroutine interpolate_face_velocities
 
-  subroutine mkutrans_1d(u,ng_u,utrans,ng_ut, &
+  subroutine mkutrans_1d(u,ng_u,ustar,ng_ut, &
                          lo,hi,dx,dt,adv_bc,phys_bc)
 
     use bc_module
@@ -131,7 +134,7 @@ contains
 
     integer,         intent(in   ) :: lo(:),hi(:),ng_u,ng_ut
     real(kind=dp_t), intent(in   ) ::      u(lo(1)-ng_u :,:)
-    real(kind=dp_t), intent(inout) :: utrans(lo(1)-ng_ut:)
+    real(kind=dp_t), intent(inout) :: ustar(lo(1)-ng_ut:)
     real(kind=dp_t), intent(in   ) :: dt,dx(:)
     integer        , intent(in   ) :: adv_bc(:,:,:)
     integer        , intent(in   ) :: phys_bc(:,:)
@@ -169,7 +172,7 @@ contains
     end if
 
     !******************************************************************
-    ! create utrans
+    ! create ustar
     !******************************************************************
 
     if (ppm_type .eq. 0) then
@@ -223,8 +226,8 @@ contains
        uavg = HALF*(ulx(i)+urx(i))
        test = ((ulx(i) .le. ZERO .and. urx(i) .ge. ZERO) .or. &
                (abs(ulx(i)+urx(i)) .lt. rel_eps))
-       utrans(i) = merge(ulx(i),urx(i),uavg .gt. ZERO)
-       utrans(i) = merge(ZERO,utrans(i),test)
+       ustar(i) = merge(ulx(i),urx(i),uavg .gt. ZERO)
+       ustar(i) = merge(ZERO,ustar(i),test)
     end do
 
     deallocate(ulx,urx)
@@ -232,7 +235,7 @@ contains
 
   end subroutine mkutrans_1d
 
-  subroutine mkutrans_2d(u,ng_u,utrans,vtrans,ng_ut, &
+  subroutine mkutrans_2d(u,ng_u,ustar,vtrans,ng_ut, &
                          lo,hi,dx,dt,adv_bc,phys_bc)
 
     use bc_module
@@ -243,7 +246,7 @@ contains
 
     integer,         intent(in   ) :: lo(:),hi(:),ng_u,ng_ut
     real(kind=dp_t), intent(in   ) ::      u(lo(1)-ng_u :,lo(2)-ng_u :,:)
-    real(kind=dp_t), intent(inout) :: utrans(lo(1)-ng_ut:,lo(2)-ng_ut:)
+    real(kind=dp_t), intent(inout) :: ustar(lo(1)-ng_ut:,lo(2)-ng_ut:)
     real(kind=dp_t), intent(inout) :: vtrans(lo(1)-ng_ut:,lo(2)-ng_ut:)
     real(kind=dp_t), intent(in   ) :: dt,dx(:)
     integer        , intent(in   ) :: adv_bc(:,:,:)
@@ -293,7 +296,7 @@ contains
     end if
 
     !******************************************************************
-    ! create utrans
+    ! create ustar
     !******************************************************************
 
     if (ppm_type .eq. 0) then
@@ -343,7 +346,7 @@ contains
        urx(ie+1,js:je) = ulx(ie+1,js:je)
     case (INTERIOR, PERIODIC) 
     case  default
-       call bl_error("mkutrans_2d: invalid boundary type phys_bc(1,2)")
+       call bl_error("mkustar_2d: invalid boundary type phys_bc(1,2)")
     end select
 
     do j=js,je
@@ -352,8 +355,8 @@ contains
           uavg = HALF*(ulx(i,j)+urx(i,j))
           test = ((ulx(i,j) .le. ZERO .and. urx(i,j) .ge. ZERO) .or. &
                (abs(ulx(i,j)+urx(i,j)) .lt. rel_eps))
-          utrans(i,j) = merge(ulx(i,j),urx(i,j),uavg .gt. ZERO)
-          utrans(i,j) = merge(ZERO,utrans(i,j),test)
+          ustar(i,j) = merge(ulx(i,j),urx(i,j),uavg .gt. ZERO)
+          ustar(i,j) = merge(ZERO,ustar(i,j),test)
        end do
     end do
 

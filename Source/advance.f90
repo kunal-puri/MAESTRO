@@ -159,7 +159,7 @@ contains
     type(multifab) ::               sedge(mla%nlevel,mla%dim)
     type(multifab) ::               sflux(mla%nlevel,mla%dim)
 
-    type(multifab) ::               uface(mla%nlevel,mla%dim)
+    type(multifab) ::               ustar(mla%nlevel,mla%dim)
 
     real(kind=dp_t), allocatable ::        grav_cell_nph(:,:)
     real(kind=dp_t), allocatable ::        grav_cell_new(:,:)
@@ -327,16 +327,16 @@ contains
     end if
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !! Construct the edge-centered or face velocities
+    !! Construct the face-centered velocities
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     do n=1,nlevs
        do comp=1,dm
-          call multifab_build_edge(uface(n,comp), mla%la(n),1,1,comp)
+          call multifab_build_edge(ustar(n,comp), mla%la(n),1,1,comp)
        end do
     end do
     
     ! Compute the non-divergence free velocities
-    call compute_vstar(uold,sold,uface,dx,dt,the_bc_tower%bc_tower_array,mla)
+    call compute_vstar(uold,sold,ustar,dx,dt,the_bc_tower%bc_tower_array,mla)
 
     if (dm .eq. 3) then
        do n=1,nlevs
@@ -375,7 +375,7 @@ contains
 
     ! Velocity Projection
     call cell_to_edge(div_coeff_old,div_coeff_edge)
-    call macproject(mla,uface,macphi,sold,dx,the_bc_tower, &
+    call macproject(mla,ustar,macphi,sold,dx,the_bc_tower, &
                     macrhs,div_coeff_1d=div_coeff_old,div_coeff_1d_edge=div_coeff_edge)
 
     do n=1,nlevs
@@ -440,7 +440,7 @@ contains
        do comp = 1,dm
           call destroy(sedge(n,comp))
           call destroy(sflux(n,comp))
-          call destroy(uface(n,comp))
+          call destroy(ustar(n,comp))
        end do
        call destroy(scal_force(n))
     end do
