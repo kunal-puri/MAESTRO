@@ -19,7 +19,7 @@ module compute_rhs_module
 
 contains
 
-  subroutine momentum_flux(vel_force, uold, umac, s, index_rho, dx, the_bc_level, mla)
+  subroutine momentum_flux(cflux, dflux, uold, umac, s, index_rho, dx, the_bc_level, mla)
 
     ! index_rho refers to the index into s where the density lives.
     ! Usually s will be the full state array, and index_rho would
@@ -34,7 +34,7 @@ contains
     use fill_3d_module, only : put_1d_array_on_cart
     use variables, only : foextrap_comp
 
-    type(multifab) , intent(inout) :: vel_force(:)
+    type(multifab) , intent(inout) :: cflux(:), dflux(:)
     type(multifab) , intent(in   ) :: uold(:)
     type(multifab) , intent(in   ) :: umac(:,:)
     type(multifab) , intent(in   ) :: s(:)
@@ -70,16 +70,17 @@ contains
 
     type(bl_prof_timer), save :: bpt
 
-    call build(bpt, "mk_vel_force")
+    call build(bpt, "compute_flux")
 
     dm = mla%dim
     nlevs = mla%nlevel
 
     ng_s  = nghost(s(1))
-    ng_f  = nghost(vel_force(1))
+    ng_f  = nghost(cflux(1))
 
     do n = 1, nlevs
-       call setval(vel_force(n),ZERO,all=.true.)
+       call setval(cflux(n),ZERO,all=.true.)
+       call setval(dflux(n),ZERO,all=.true.)
     end do
 
     ! do n=1,nlevs
@@ -161,11 +162,17 @@ contains
     end if
 
     ! restrict data and fill all ghost cells
-    call ml_restrict_and_fill(nlevs,vel_force,mla%mba%rr,the_bc_level, &
+    call ml_restrict_and_fill(nlevs,cflux,mla%mba%rr,the_bc_level, &
                               icomp=1, &
                               bcomp=1, &
-                              nc=dm, &
-                              ng=vel_force(1)%ng)
+                              nc=dm,   &
+                              ng=cflux(1)%ng)
+
+    call ml_restrict_and_fill(nlevs,dflux,mla%mba%rr,the_bc_level, &
+                              icomp=1, &
+                              bcomp=1, &
+                              nc=dm,   &
+                              ng=dflux(1)%ng)
 
     call destroy(bpt)
 

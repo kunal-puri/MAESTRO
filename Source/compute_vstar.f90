@@ -39,7 +39,7 @@ contains
     type(ml_layout), intent(inout) :: mla
 
     ! local
-    type(multifab) ::  flux(mla%nlevel)
+    type(multifab) ::  cflux(mla%nlevel), dflux(mla%nlevel)
     type(multifab) :: utrans(mla%nlevel,mla%dim)
     type(multifab) ::  ufull(mla%nlevel)
     integer        :: n,comp,dm,nlevs
@@ -69,19 +69,21 @@ contains
     !     Create the fluxes for the Momentum equation
     !*************************************************************
     do n=1,nlevs
-       call multifab_build(flux(n),get_layout(uold(n)),dm,1)
+       call multifab_build(cflux(n),get_layout(uold(n)),dm,1)
+       call multifab_build(dflux(n),get_layout(uold(n)),dm,1)
     end do
 
-    call momentum_flux(flux, uold, ustar, sold, rho_comp, dx, the_bc_level, mla)
+    call momentum_flux(cflux, dflux, uold, ustar, sold, rho_comp, dx, the_bc_level, mla)
 
     !*************************************************************
     !     Create the edge states to be used for the MAC velocity 
     !*************************************************************
-    call velpred(uold,ustar,utrans,flux,dx,dt,the_bc_level,mla)
+    call velpred(uold,ustar,utrans,cflux,dx,dt,the_bc_level,mla)
     !call velpred(uold,ufull,uface,utrans,force,w0,w0mac,dx,dt,the_bc_level,mla)
 
     do n = 1,nlevs
-       call destroy(flux(n))
+       call destroy(cflux(n))
+       call destroy(dflux(n))
        do comp=1,dm
           call destroy(utrans(n,comp))
        end do
