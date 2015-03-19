@@ -13,7 +13,7 @@
 !
 ! basic outline:
 !
-!   -- multiply U by beta_0 (now the umac multifab holds: beta_0 U)
+!   -- multiply U by beta_0 (now the ustar multifab holds: beta_0 U)
 !
 !   -- compute div ( beta_0 U)
 !
@@ -23,8 +23,8 @@
 !
 !   -- solve the elliptic equation via multigrid
 !
-!   -- compute beta_0 U = beta_0 U - (beta_0/rho) G phi (mkumac subroutine)
-!      (note it is beta_0 U that is updated since umac still holds beta_0 U)
+!   -- compute beta_0 U = beta_0 U - (beta_0/rho) G phi (mkustar subroutine)
+!      (note it is beta_0 U that is updated since ustar still holds beta_0 U)
 !
 !   -- divide out the beta_0 giving us the new U
 !
@@ -48,7 +48,7 @@ contains
 
   ! NOTE: this routine differs from that in varden because phi is passed in/out 
   !       rather than allocated here
-  subroutine macproject(mla,uface,phi,rho,dx,dt,the_bc_tower)
+  subroutine macproject(mla,ustar,phi,rho,dx,dt,the_bc_tower)
 
     use mac_hypre_module               , only : mac_hypre
     use mac_multigrid_module           , only : mac_multigrid
@@ -62,7 +62,7 @@ contains
     use mg_eps_module, only: eps_mac, eps_mac_max, mac_level_factor
 
     type(ml_layout), intent(in   ) :: mla
-    type(multifab ), intent(inout) :: uface(:,:)
+    type(multifab ), intent(inout) :: ustar(:,:)
     type(multifab ), intent(inout) :: phi(:)
     type(multifab ), intent(in   ) :: rho(:)
     real(dp_t)     , intent(in   ) :: dx(:,:),dt
@@ -71,7 +71,7 @@ contains
     type(multifab)  :: rh(mla%nlevel),alpha(mla%nlevel),beta(mla%nlevel,mla%dim)
     type(bndry_reg) :: fine_flx(2:mla%nlevel)
 
-    real(dp_t)                   :: umac_norm(mla%nlevel), eps, abs_eps
+    real(dp_t)                   :: ustar_norm(mla%nlevel), eps, abs_eps
     real(dp_t)                   :: umin,umax,vmin,vmax,wmin,wmax
     real(dp_t)                   :: rel_solver_eps
     real(dp_t)                   :: abs_solver_eps
@@ -102,25 +102,25 @@ contains
     if (verbose .eq. 1) then
        if (parallel_IOProcessor()) print *,''
        do n = 1,nlevs
-          umax = multifab_max(uface(n,1))
-          umin = multifab_min(uface(n,1))
+          umax = multifab_max(ustar(n,1))
+          umin = multifab_min(ustar(n,1))
           if (dm.eq.1) then
              if (parallel_IOProcessor()) then
                  write(6,1001) n, umax
                  write(6,1101) n, umin
              end if
           else if (dm.eq.2) then
-             vmax = multifab_max(uface(n,2))
-             vmin = multifab_min(uface(n,2))
+             vmax = multifab_max(ustar(n,2))
+             vmin = multifab_min(ustar(n,2))
              if (parallel_IOProcessor()) then
                  write(6,1002) n, umax, vmax
                  write(6,1102) n, umin, vmin
              end if
           else if (dm.eq.3) then
-             vmax = multifab_max(uface(n,2))
-             vmin = multifab_min(uface(n,2))
-             wmax = multifab_max(uface(n,3))
-             wmin = multifab_min(uface(n,3))
+             vmax = multifab_max(ustar(n,2))
+             vmin = multifab_min(ustar(n,2))
+             wmax = multifab_max(ustar(n,3))
+             wmin = multifab_min(ustar(n,3))
              if (parallel_IOProcessor()) then
                  write(6,1003) n, umax, vmax, wmax
                  write(6,1103) n, umin, vmin, wmin
@@ -130,17 +130,17 @@ contains
     end if
 
     !Compute umac_norm to be used inside the MG solver as part of a stopping criterion
-    umac_norm = -1.0_dp_t
+    ustar_norm = -1.0_dp_t
     do n = 1,nlevs
        do i = 1,dm
-          umac_norm(n) = max(umac_norm(n),norm_inf(uface(n,i)))
+          ustar_norm(n) = max(ustar_norm(n),norm_inf(ustar(n,i)))
        end do
     end do
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Compute the RHS (Divergence of the edge-centered velocities)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    call divumac(uface,rh,dx,dt,mla%mba%rr,.true.)
+    call divustar(ustar,rh,dx,dt,mla%mba%rr,.true.)
 
     do n = 2,nlevs
        call bndry_reg_build(fine_flx(n),mla%la(n),ml_layout_get_pd(mla,n))
@@ -151,7 +151,7 @@ contains
     eps = 1.0d-10
     !if (present(umac_norm)) then
     do n = 1,nlevs
-      abs_eps = max(abs_eps, umac_norm(n) / dx(n,1))
+      abs_eps = max(abs_eps, ustar_norm(n) / dx(n,1))
     end do
     abs_solver_eps = eps * abs_eps
     !endif
@@ -175,7 +175,7 @@ contains
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Correct the edge-centered velocities
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    call mkumac(mla,uface,phi,beta,fine_flx,dx,dt,the_bc_tower)
+    call mkustar(mla,ustar,phi,beta,fine_flx,dx,dt,the_bc_tower)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Manage the hierarchy
@@ -185,11 +185,11 @@ contains
        ! fill ghost cells for two adjacent grids at the same level
        ! this includes periodic domain boundary ghost cells
       do i=1,dm
-          call multifab_fill_boundary(uface(nlevs,i))
+          call multifab_fill_boundary(ustar(nlevs,i))
        enddo
 
        ! fill non-periodic domain boundary ghost cells
-       call multifab_physbc_edgevel(uface(nlevs,:),the_bc_tower%bc_tower_array(nlevs))
+       call multifab_physbc_edgevel(ustar(nlevs,:),the_bc_tower%bc_tower_array(nlevs))
 
     else
 
@@ -197,14 +197,14 @@ contains
        do n=nlevs,2,-1
           ! set level n-1 data to be the average of the level n data covering it
           do i=1,dm
-             call ml_edge_restriction(uface(n-1,i),uface(n,i),mla%mba%rr(n-1,:),i)
+             call ml_edge_restriction(ustar(n-1,i),ustar(n,i),mla%mba%rr(n-1,:),i)
           enddo
        end do
 
        do n=2,nlevs
           ! fill level n ghost cells using interpolation from level n-1 data
           ! note that multifab_fill_boundary and multifab_physbc_edgevel are called.
-          call create_umac_grown(uface(n,:),uface(n-1,:), &
+          call create_umac_grown(ustar(n,:),ustar(n-1,:), &
                                  the_bc_tower%bc_tower_array(n-1), &
                                  the_bc_tower%bc_tower_array(n), &
                                  n.eq.nlevs)
@@ -215,25 +215,25 @@ contains
     ! Print the norm of each component separately
     if (verbose .eq. 1) then
        do n = 1,nlevs
-          umin = multifab_max(uface(n,1))
-          umax = multifab_min(uface(n,1))
+          umin = multifab_max(ustar(n,1))
+          umax = multifab_min(ustar(n,1))
           if (dm.eq.1) then
              if (parallel_IOProcessor()) then
                  write(6,1001) n, umax
                  write(6,1101) n, umin
              end if
           else if (dm.eq.2) then
-             vmin = multifab_max(uface(n,2))
-             vmax = multifab_min(uface(n,2))
+             vmin = multifab_max(ustar(n,2))
+             vmax = multifab_min(ustar(n,2))
              if (parallel_IOProcessor()) then
                  write(6,1002) n, umax, vmax
                  write(6,1102) n, umin, vmin
              end if
           else if (dm.eq.3) then
-             vmin = multifab_max(uface(n,2))
-             vmax = multifab_min(uface(n,2))
-             wmin = multifab_max(uface(n,3))
-             wmax = multifab_min(uface(n,3))
+             vmin = multifab_max(ustar(n,2))
+             vmax = multifab_min(ustar(n,2))
+             wmin = multifab_max(ustar(n,3))
+             wmax = multifab_min(ustar(n,3))
              if (parallel_IOProcessor()) then
                  write(6,1003) n, umax, vmax, wmax
                  write(6,1103) n, umin, vmin, wmin
@@ -266,12 +266,12 @@ contains
 
   contains
 
-    subroutine divumac(umac,rh,dx,dt,ref_ratio,before)
+    subroutine divustar(ustar,rh,dx,dt,ref_ratio,before)
 
       use ml_cc_restriction_module, only: ml_cc_restriction, ml_edge_restriction
       use probin_module, only: verbose
 
-      type(multifab) , intent(inout) :: umac(:,:)
+      type(multifab) , intent(inout) :: ustar(:,:)
       type(multifab) , intent(inout) :: rh(:)
       real(kind=dp_t), intent(in   ) :: dx(:,:),dt
       integer        , intent(in   ) :: ref_ratio(:,:)
@@ -287,27 +287,27 @@ contains
 
       dm = get_dim(rh(1))
 
-      ng_um = nghost(umac(1,1))
+      ng_um = nghost(ustar(1,1))
       ng_rh = nghost(rh(1))
 
       do n = nlevs,2,-1
          do i = 1,dm
-            call ml_edge_restriction(umac(n-1,i),umac(n,i),ref_ratio(n-1,:),i)
+            call ml_edge_restriction(ustar(n-1,i),ustar(n,i),ref_ratio(n-1,:),i)
          end do
       end do
 
       do n = 1,nlevs
          do i = 1, nfabs(rh(n))
-            ump => dataptr(umac(n,1), i)
+            ump => dataptr(ustar(n,1), i)
             rhp => dataptr(rh(n)    , i)
             lo =   lwb(get_box(rh(n), i))
             hi =   upb(get_box(rh(n), i))
             select case (dm)
             case (1)
-               call divumac_1d(ump(:,1,1,1),ng_um,rhp(:,1,1,1),ng_rh,dx(n,:),dt,lo,hi)
+               call divustar_1d(ump(:,1,1,1),ng_um,rhp(:,1,1,1),ng_rh,dx(n,:),dt,lo,hi)
             case (2)
-               vmp => dataptr(umac(n,2), i)
-               call divumac_2d(ump(:,:,1,1),vmp(:,:,1,1),ng_um,rhp(:,:,1,1),ng_rh, &
+               vmp => dataptr(ustar(n,2), i)
+               call divustar_2d(ump(:,:,1,1),vmp(:,:,1,1),ng_um,rhp(:,:,1,1),ng_rh, &
                                dx(n,:),dt,lo,hi)
             ! case (3)
             !    vmp => dataptr(umac(n,2), i)
@@ -349,12 +349,12 @@ contains
 1001  format('... before projection: max of [div Ustar]',e15.8)
 1002  format('...  after projection: max of [div Ustar]',e15.8)
 
-    end subroutine divumac
+    end subroutine divustar
 
-    subroutine divumac_1d(umac,ng_um,rh,ng_rh,dx,dt,lo,hi)
+    subroutine divustar_1d(ustar,ng_um,rh,ng_rh,dx,dt,lo,hi)
 
       integer        , intent(in   ) :: lo(:),hi(:),ng_um,ng_rh
-      real(kind=dp_t), intent(in   ) :: umac(lo(1)-ng_um:)
+      real(kind=dp_t), intent(in   ) :: ustar(lo(1)-ng_um:)
       real(kind=dp_t), intent(inout) ::   rh(lo(1)-ng_rh:)
       real(kind=dp_t), intent(in   ) ::   dx(:), dt
 
@@ -363,16 +363,16 @@ contains
 
       dti = 1.0d0/dt
       do i = lo(1),hi(1)
-         rh(i) = dti* ( (umac(i+1) - umac(i)) / dx(1) )
+         rh(i) = dti* ( (ustar(i+1) - ustar(i)) / dx(1) )
       end do
 
-    end subroutine divumac_1d
+    end subroutine divustar_1d
 
-    subroutine divumac_2d(umac,vmac,ng_um,rh,ng_rh,dx,dt,lo,hi)
+    subroutine divustar_2d(ustar,vstar,ng_um,rh,ng_rh,dx,dt,lo,hi)
 
       integer        , intent(in   ) :: lo(:),hi(:),ng_um,ng_rh
-      real(kind=dp_t), intent(in   ) :: umac(lo(1)-ng_um:,lo(2)-ng_um:)
-      real(kind=dp_t), intent(in   ) :: vmac(lo(1)-ng_um:,lo(2)-ng_um:)
+      real(kind=dp_t), intent(in   ) :: ustar(lo(1)-ng_um:,lo(2)-ng_um:)
+      real(kind=dp_t), intent(in   ) :: vstar(lo(1)-ng_um:,lo(2)-ng_um:)
       real(kind=dp_t), intent(inout) ::   rh(lo(1)-ng_rh:,lo(2)-ng_rh:)
       real(kind=dp_t), intent(in   ) ::   dx(:),dt
 
@@ -382,18 +382,18 @@ contains
       dti = 1.0d0/dt      
       do j = lo(2),hi(2)
          do i = lo(1),hi(1)
-            rh(i,j) = dti*( (umac(i+1,j) - umac(i,j)) / dx(1) + &
-                            (vmac(i,j+1) - vmac(i,j)) / dx(2) )
+            rh(i,j) = dti*( (ustar(i+1,j) - ustar(i,j)) / dx(1) + &
+                            (vstar(i,j+1) - vstar(i,j)) / dx(2) )
          end do
       end do
 
-    end subroutine divumac_2d
+    end subroutine divustar_2d
 
-    subroutine divumac_3d(umac,vmac,wmac,ng_um,rh,ng_rh,dx,lo,hi)
+    subroutine divustar_3d(ustar,vstar,wmac,ng_um,rh,ng_rh,dx,lo,hi)
 
       integer        , intent(in   ) :: lo(:),hi(:),ng_um,ng_rh
-      real(kind=dp_t), intent(in   ) :: umac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
-      real(kind=dp_t), intent(in   ) :: vmac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
+      real(kind=dp_t), intent(in   ) :: ustar(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
+      real(kind=dp_t), intent(in   ) :: vstar(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
       real(kind=dp_t), intent(in   ) :: wmac(lo(1)-ng_um:,lo(2)-ng_um:,lo(3)-ng_um:)
       real(kind=dp_t), intent(inout) ::   rh(lo(1)-ng_rh:,lo(2)-ng_rh:,lo(3)-ng_rh:)
       real(kind=dp_t), intent(in   ) :: dx(:)
@@ -404,22 +404,22 @@ contains
       do k = lo(3),hi(3)
          do j = lo(2),hi(2)
             do i = lo(1),hi(1)
-               rh(i,j,k) = (umac(i+1,j,k) - umac(i,j,k)) / dx(1) + &
-                           (vmac(i,j+1,k) - vmac(i,j,k)) / dx(2) + &
+               rh(i,j,k) = (ustar(i+1,j,k) - ustar(i,j,k)) / dx(1) + &
+                           (vstar(i,j+1,k) - vstar(i,j,k)) / dx(2) + &
                            (wmac(i,j,k+1) - wmac(i,j,k)) / dx(3)
             end do
          end do
       end do
       !$OMP END PARALLEL DO
 
-    end subroutine divumac_3d
+    end subroutine divustar_3d
 
-    subroutine mkumac(mla,umac,phi,beta,fine_flx,dx,dt,the_bc_tower)
+    subroutine mkustar(mla,ustar,phi,beta,fine_flx,dx,dt,the_bc_tower)
 
       use variables, only: press_comp
 
       type(ml_layout),intent(in   ) :: mla
-      type(multifab), intent(inout) :: umac(:,:)
+      type(multifab), intent(inout) :: ustar(:,:)
       type(multifab), intent(in   ) ::  phi(:)
       type(multifab), intent(in   ) :: beta(:,:)
       type(bndry_reg),intent(in   ) :: fine_flx(2:)
@@ -446,23 +446,23 @@ contains
       dm = get_dim(phi(1))
       nlevs = size(phi)
 
-      ng_um = nghost(umac(1,1))
+      ng_um = nghost(ustar(1,1))
       ng_p = nghost(phi(1))
       ng_b = nghost(beta(1,1))
 
       do n = 1, nlevs
          bc = the_bc_tower%bc_tower_array(n)
          do i = 1, nfabs(phi(n))
-            ump => dataptr(umac(n,1), i)
+            ump => dataptr(ustar(n,1), i)
             php => dataptr( phi(n), i)
             bxp => dataptr(beta(n,1), i)
             lo  =  lwb(get_box(phi(n), i))
             hi  =  upb(get_box(phi(n), i))
             select case (dm)
             case (2)
-               vmp => dataptr(umac(n,2), i)
+               vmp => dataptr(ustar(n,2), i)
                byp => dataptr(beta(n,2), i)
-               call mkumac_2d(n,ump(:,:,1,1),vmp(:,:,1,1), ng_um, & 
+               call mkustar_2d(n,ump(:,:,1,1),vmp(:,:,1,1), ng_um, & 
                               php(:,:,1,1), ng_p, &
                               bxp(:,:,1,1), byp(:,:,1,1), ng_b, &
                               lo,hi,dx(n,:),bc%ell_bc_level_array(i,:,:,press_comp))
@@ -471,7 +471,7 @@ contains
                   hxp => dataptr(fine_flx(n)%bmf(1,1), i)
                   lyp => dataptr(fine_flx(n)%bmf(2,0), i)
                   hyp => dataptr(fine_flx(n)%bmf(2,1), i)
-                  call correct_mkumac_2d(ump(:,:,1,1),vmp(:,:,1,1),ng_um, &
+                  call correct_mkustar_2d(ump(:,:,1,1),vmp(:,:,1,1),ng_um, &
                                          lxp(:,:,1,1),hxp(:,:,1,1),lyp(:,:,1,1),hyp(:,:,1,1), &
                                          lo,hi,dx(n,:))
                end if
@@ -480,7 +480,7 @@ contains
             !    wmp => dataptr(umac(n,3), i)
             !    byp => dataptr(beta(n,2), i)
             !    bzp => dataptr(beta(n,3), i)
-            !    call mkumac_3d(n,ump(:,:,:,1),vmp(:,:,:,1),wmp(:,:,:,1),ng_um,&
+            !    call mkustar_3d(n,ump(:,:,:,1),vmp(:,:,:,1),wmp(:,:,:,1),ng_um,&
             !                   php(:,:,:,1), ng_p, &
             !                   bxp(:,:,:,1), byp(:,:,:,1), bzp(:,:,:,1), ng_b, &
             !                   lo,hi,dx(n,:),bc%ell_bc_level_array(i,:,:,press_comp))
@@ -491,7 +491,7 @@ contains
             !       hyp => dataptr(fine_flx(n)%bmf(2,1), i)
             !       lzp => dataptr(fine_flx(n)%bmf(3,0), i)
             !       hzp => dataptr(fine_flx(n)%bmf(3,1), i)
-            !       call correct_mkumac_3d(ump(:,:,:,1), vmp(:,:,:,1), wmp(:,:,:,1), ng_um, &
+            !       call correct_mkustar_3d(ump(:,:,:,1), vmp(:,:,:,1), wmp(:,:,:,1), ng_um, &
             !                              lxp(:,:,:,1),hxp(:,:,:,1),lyp(:,:,:,1),hyp(:,:,:,1), &
             !                              lzp(:,:,:,1),hzp(:,:,:,1),lo,hi,dx(n,:))
             !    end if
@@ -499,25 +499,25 @@ contains
          end do
 
          do i = 1,dm
-            call multifab_fill_boundary(umac(n,i))
+            call multifab_fill_boundary(ustar(n,i))
          enddo
 
       end do
 
       do n = nlevs,2,-1
          do i = 1,dm
-            call ml_edge_restriction(umac(n-1,i),umac(n,i),mla%mba%rr(n-1,:),i)
+            call ml_edge_restriction(ustar(n-1,i),ustar(n,i),mla%mba%rr(n-1,:),i)
          end do
       end do
 
-    end subroutine mkumac
+    end subroutine mkustar
 
-    subroutine mkumac_2d(n,umac,vmac,ng_um,phi,ng_p,betax,betay,ng_b,lo,hi,dx,press_bc)
+    subroutine mkustar_2d(n,ustar,vstar,ng_um,phi,ng_p,betax,betay,ng_b,lo,hi,dx,press_bc)
 
       integer        , intent(in   ) :: lo(:),hi(:)
       integer        , intent(in   ) :: n,ng_um,ng_p,ng_b
-      real(kind=dp_t), intent(inout) ::  umac(lo(1)-ng_um:,lo(2)-ng_um:)
-      real(kind=dp_t), intent(inout) ::  vmac(lo(1)-ng_um:,lo(2)-ng_um:)
+      real(kind=dp_t), intent(inout) ::  ustar(lo(1)-ng_um:,lo(2)-ng_um:)
+      real(kind=dp_t), intent(inout) ::  vstar(lo(1)-ng_um:,lo(2)-ng_um:)
       real(kind=dp_t), intent(inout) ::   phi(lo(1)-ng_p: ,lo(2)-ng_p:)
       real(kind=dp_t), intent(in   ) :: betax(lo(1)-ng_b: ,lo(2)-ng_b:)
       real(kind=dp_t), intent(in   ) :: betay(lo(1)-ng_b: ,lo(2)-ng_b:)
@@ -584,7 +584,7 @@ contains
       do j = lo(2),hi(2)
          do i = imin,imax
             gphix = (phi(i,j) - phi(i-1,j)) / dx(1)
-            umac(i,j) = umac(i,j) - dt*gphix
+            ustar(i,j) = ustar(i,j) - dt*gphix
             !umac(i,j) = umac(i,j) - betax(i,j)*gphix
          end do
       end do
@@ -592,7 +592,7 @@ contains
       do i = lo(1),hi(1)
          do j = jmin,jmax
             gphiy = (phi(i,j) - phi(i,j-1)) / dx(2)
-            vmac(i,j) = vmac(i,j) - dt*gphiy
+            vstar(i,j) = vstar(i,j) - dt*gphiy
             !vmac(i,j) = vmac(i,j) - betay(i,j)*gphiy
          end do
       end do
@@ -603,15 +603,15 @@ contains
       if (press_bc(2,1) == BC_DIR) phi(:,lo(2)-1) = ZERO
       if (press_bc(2,2) == BC_DIR) phi(:,hi(2)+1) = ZERO
 
-    end subroutine mkumac_2d
+    end subroutine mkustar_2d
 
-    subroutine correct_mkumac_2d(umac,vmac,ng_um, &
+    subroutine correct_mkustar_2d(ustar,vstar,ng_um, &
                                  lo_x_flx,hi_x_flx,lo_y_flx,hi_y_flx, &
                                  lo,hi,dx)
 
       integer        , intent(in   ) :: lo(:),hi(:),ng_um
-      real(kind=dp_t), intent(inout) :: umac(lo(1)-ng_um:,lo(2)-ng_um:)
-      real(kind=dp_t), intent(inout) :: vmac(lo(1)-ng_um:,lo(2)-ng_um:)
+      real(kind=dp_t), intent(inout) :: ustar(lo(1)-ng_um:,lo(2)-ng_um:)
+      real(kind=dp_t), intent(inout) :: vstar(lo(1)-ng_um:,lo(2)-ng_um:)
       real(kind=dp_t), intent(in   ) :: lo_x_flx(:,lo(2):), lo_y_flx(lo(1):,:)
       real(kind=dp_t), intent(in   ) :: hi_x_flx(:,lo(2):), hi_y_flx(lo(1):,:)
       real(kind=dp_t), intent(in   ) :: dx(:)
@@ -619,23 +619,23 @@ contains
       integer :: i,j
 
       do j = lo(2),hi(2)
-         umac(lo(1)  ,j) = umac(lo(1)  ,j) - lo_x_flx(1,j) * dx(1)
-         umac(hi(1)+1,j) = umac(hi(1)+1,j) + hi_x_flx(1,j) * dx(1)
+         ustar(lo(1)  ,j) = ustar(lo(1)  ,j) - lo_x_flx(1,j) * dx(1)
+         ustar(hi(1)+1,j) = ustar(hi(1)+1,j) + hi_x_flx(1,j) * dx(1)
       end do
 
 
       do i = lo(1),hi(1)
-         vmac(i,lo(2)  ) = vmac(i,lo(2)  ) - lo_y_flx(i,1) * dx(2)
-         vmac(i,hi(2)+1) = vmac(i,hi(2)+1) + hi_y_flx(i,1) * dx(2)
+         vstar(i,lo(2)  ) = vstar(i,lo(2)  ) - lo_y_flx(i,1) * dx(2)
+         vstar(i,hi(2)+1) = vstar(i,hi(2)+1) + hi_y_flx(i,1) * dx(2)
       end do
 
-    end subroutine correct_mkumac_2d
+    end subroutine correct_mkustar_2d
 
-    subroutine mkumac_1d(n,umac,ng_um,phi,ng_p,betax,ng_b,lo,hi,dx,press_bc)
+    subroutine mkustar_1d(n,ustar,ng_um,phi,ng_p,betax,ng_b,lo,hi,dx,press_bc)
 
       integer        , intent(in   ) :: lo(:),hi(:)
       integer        , intent(in   ) :: n,ng_um,ng_p,ng_b
-      real(kind=dp_t), intent(inout) ::  umac(lo(1)-ng_um:)
+      real(kind=dp_t), intent(inout) ::  ustar(lo(1)-ng_um:)
       real(kind=dp_t), intent(inout) ::   phi(lo(1)-ng_p:)
       real(kind=dp_t), intent(in   ) :: betax(lo(1)-ng_b:)
       real(kind=dp_t), intent(in   ) :: dx(:)
@@ -669,27 +669,27 @@ contains
 
       do i = imin,imax
          gphix = (phi(i) - phi(i-1)) / dx(1)
-         umac(i) = umac(i) - betax(i)*gphix
+         ustar(i) = ustar(i) - betax(i)*gphix
       end do
 
       ! Here we reset phi == 0 at BC_DIR to be used in later iteration if necessary
       if (press_bc(1,1) == BC_DIR) phi(lo(1)-1) = ZERO
       if (press_bc(1,2) == BC_DIR) phi(hi(1)+1) = ZERO
 
-    end subroutine mkumac_1d
+    end subroutine mkustar_1d
 
-    subroutine correct_mkumac_1d(umac,ng_um,lo_x_flx,hi_x_flx,lo,hi,dx)
+    subroutine correct_mkustar_1d(ustar,ng_um,lo_x_flx,hi_x_flx,lo,hi,dx)
 
       integer        , intent(in   ) :: lo(:),hi(:),ng_um
-      real(kind=dp_t), intent(inout) :: umac(lo(1)-ng_um:)
+      real(kind=dp_t), intent(inout) :: ustar(lo(1)-ng_um:)
       real(kind=dp_t), intent(in   ) :: lo_x_flx(:)
       real(kind=dp_t), intent(in   ) :: hi_x_flx(:)
       real(kind=dp_t), intent(in   ) :: dx(:)
 
-      umac(lo(1)  ) = umac(lo(1)  ) - lo_x_flx(1) * dx(1)
-      umac(hi(1)+1) = umac(hi(1)+1) + hi_x_flx(1) * dx(1)
+      ustar(lo(1)  ) = ustar(lo(1)  ) - lo_x_flx(1) * dx(1)
+      ustar(hi(1)+1) = ustar(hi(1)+1) + hi_x_flx(1) * dx(1)
 
-    end subroutine correct_mkumac_1d
+    end subroutine correct_mkustar_1d
 
     ! subroutine mkumac_3d(n,umac,vmac,wmac,ng_um,phi,ng_p, &
     !                      betax,betay,betaz,ng_b,lo,hi,dx,press_bc)
