@@ -28,7 +28,7 @@ contains
     use fill_3d_module, only: put_1d_array_on_cart
     use probin_module, only: ppm_trace_forces
 
-    use compute_rhs_module                , only: momentum_flux
+    use compute_rhs_module                , only: momentum_force
     use interpolate_face_velocities_module, only: interpolate_face_velocities
 
     type(multifab) , intent(in   ) :: uold(:)
@@ -39,7 +39,7 @@ contains
     type(ml_layout), intent(inout) :: mla
 
     ! local
-    type(multifab) ::  cflux(mla%nlevel,mla%dim), dflux(mla%nlevel,mla%dim)
+    type(multifab) ::  cforce(mla%nlevel,mla%dim), dforce(mla%nlevel,mla%dim)
     type(multifab) :: utrans(mla%nlevel,mla%dim)
     type(multifab) ::  ufull(mla%nlevel)
     integer        :: n,comp,dm,nlevs
@@ -66,16 +66,16 @@ contains
     call interpolate_face_velocities(uold, ustar, dx, dt, the_bc_level, mla)
 
     !*************************************************************
-    !     Create the fluxes for the Momentum equation
+    !     Create the forcees for the Momentum equation
     !*************************************************************
     do n=1,nlevs
        do comp = 1,dm
-          call multifab_build(cflux(n,comp),get_layout(uold(n)),dm,1)
-          call multifab_build(dflux(n,comp),get_layout(uold(n)),dm,1)
+          call multifab_build_edge(cforce(n,comp),get_layout(uold(n)),dm,1,comp)
+          call multifab_build_edge(dforce(n,comp),get_layout(uold(n)),dm,1,comp)
        end do
     end do
 
-    call momentum_flux(cflux, dflux, uold, ustar, sold, rho_comp, dx, the_bc_level, mla)
+    call momentum_force(cforce, dforce, uold, ustar, sold, rho_comp, dx, the_bc_level, mla)
 
     !*************************************************************
     !     Create the edge states to be used for the MAC velocity 
@@ -85,8 +85,8 @@ contains
 
     do n = 1,nlevs
        do comp = 1,dm
-          call destroy(cflux(n,comp))
-          call destroy(dflux(n,comp))
+          call destroy(cforce(n,comp))
+          call destroy(dforce(n,comp))
        end do
        do comp=1,dm
           call destroy(utrans(n,comp))

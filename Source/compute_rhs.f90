@@ -15,11 +15,11 @@ module compute_rhs_module
   implicit none
 
   private
-  public :: momentum_flux
+  public :: momentum_force
 
 contains
 
-  subroutine momentum_flux(cflux, dflux, uold, ustar, s, index_rho, dx, the_bc_level, mla)
+  subroutine momentum_force(cforce, dforce, uold, ustar, s, index_rho, dx, the_bc_level, mla)
 
     ! index_rho refers to the index into s where the density lives.
     ! Usually s will be the full state array, and index_rho would
@@ -34,7 +34,7 @@ contains
     use fill_3d_module, only : put_1d_array_on_cart
     use variables, only : foextrap_comp
 
-    type(multifab) , intent(inout) :: cflux(:,:), dflux(:,:)
+    type(multifab) , intent(inout) :: cforce(:,:), dforce(:,:)
     type(multifab) , intent(in   ) :: uold(:)
     type(multifab) , intent(in   ) :: ustar(:,:)
     type(multifab) , intent(in   ) :: s(:)
@@ -55,11 +55,11 @@ contains
     integer                  :: i,r,lo(mla%dim),hi(mla%dim),dm,nlevs,comp
     integer                  :: ng_s,ng_f,n,ng_uo,ng_us
 
-    real(kind=dp_t), pointer ::   fp_x(:,:,:,:)
-    real(kind=dp_t), pointer ::   fp_y(:,:,:,:)
+    real(kind=dp_t), pointer ::   fp_u(:,:,:,:)
+    real(kind=dp_t), pointer ::   fp_v(:,:,:,:)
    
     type(bl_prof_timer), save :: bpt
-    call build(bpt, "compute_flux")
+    call build(bpt, "compute_force")
 
     dm = mla%dim
     nlevs = mla%nlevel
@@ -67,13 +67,13 @@ contains
     ! number of ghosts for the scalar
     ng_s  = nghost(s(1))
 
-    ! number of ghosts for the convective flux
-    ng_f  = nghost(cflux(1,1))
+    ! number of ghosts for the convective force
+    ng_f  = nghost(cforce(1,1))
 
     do n = 1, nlevs
        do comp = 1,dm
-          call setval(cflux(n,comp),ZERO,all=.true.)
-          call setval(dflux(n,comp),ZERO,all=.true.)
+          call setval(cforce(n,comp),ZERO,all=.true.)
+          call setval(dforce(n,comp),ZERO,all=.true.)
        end do
     end do
 
@@ -84,7 +84,7 @@ contains
           rp  => dataptr(s(n),i)
 
           ! The scalars ans uold are cell-centered. lo & hi represents
-          ! the domain indices over which we compute the fluxes
+          ! the domain indices over which we compute the forcees
           lo = lwb(get_box(s(n),i))
           hi = upb(get_box(s(n),i))
 
@@ -97,17 +97,17 @@ contains
           case (2)
              vsp => dataptr(ustar(n,2),i)
              
-             fp_x => dataptr(cflux(n,1), i)
-             fp_y => dataptr(cflux(n,2), i)
+             fp_u => dataptr(cforce(n,1), i)
+             fp_v => dataptr(cforce(n,2), i)
 
-             call convective_fluxes_2d(fp_x(:,:,1,:), fp_y(:,:,1,:), ng_f, &
+             call convective_forces_2d(fp_u(:,:,1,:), fp_v(:,:,1,:), ng_f, &
                                        usp(:,:,1,1), vsp(:,:,1,1), ng_us, &
                                        lo, hi, dx, n)
 
-             fp_x => dataptr(dflux(n,1), i)
-             fp_y => dataptr(dflux(n,2), i)
+             fp_u => dataptr(dforce(n,1), i)
+             fp_v => dataptr(dforce(n,2), i)
 
-             call diffusive_fluxes_2d(fp_x(:,:,1,:), fp_y(:,:,1,:), ng_f, &
+             call diffusive_forces_2d(fp_u(:,:,1,:), fp_v(:,:,1,:), ng_f, &
                                       usp(:,:,1,1), vsp(:,:,1,1), ng_us, &
                                       lo, hi, dx, n)
              
@@ -130,42 +130,26 @@ contains
     enddo
 
     ! restrict data and fill all ghost cells
-    call ml_restrict_and_fill(nlevs,cflux(:,1),mla%mba%rr,the_bc_level, &
-                              icomp=1, &
-                              bcomp=1, &
-                              nc=dm,   &
-                              ng=cflux(1,1)%ng)
+    do comp = 1, dm
+       call ml_restrict_and_fill(nlevs,cforce(:,dm),mla%mba%rr,the_bc_level, &
+            icomp=1, bcomp=1, nc=dm, ng=cforce(1,1)%ng)
 
-    call ml_restrict_and_fill(nlevs,cflux(:,2),mla%mba%rr,the_bc_level, &
-                              icomp=1, &
-                              bcomp=1, &
-                              nc=dm,   &
-                              ng=cflux(1,1)%ng)
-
-    call ml_restrict_and_fill(nlevs,dflux(:,1),mla%mba%rr,the_bc_level, &
-                              icomp=1, &
-                              bcomp=1, &
-                              nc=dm,   &
-                              ng=dflux(1,1)%ng)
-
-    call ml_restrict_and_fill(nlevs,dflux(:,2),mla%mba%rr,the_bc_level, &
-                              icomp=1, &
-                              bcomp=1, &
-                              nc=dm,   &
-                              ng=dflux(1,1)%ng)
+       call ml_restrict_and_fill(nlevs,dforce(:,dm),mla%mba%rr,the_bc_level, &
+                              icomp=1, bcomp=1, nc=dm, ng=dforce(1,1)%ng)
+    end do
 
     call destroy(bpt)
 
-  end subroutine momentum_flux
+  end subroutine momentum_force
 
-  subroutine convective_fluxes_2d(cflux_x, cflux_y, ng_f, ustar, vstar, ng_us, &
+  subroutine convective_forces_2d(cforce_u, cforce_v, ng_f, ustar, vstar, ng_us, &
                                   lo, hi, dx, n)
     use bl_constants_module
 
     integer        , intent(in   ) ::  lo(:),hi(:),ng_f,ng_us, n
     real(kind=dp_t), intent(in   ) :: dx(:,:)
-    real(kind=dp_t), intent(inout) :: cflux_x(lo(1)-ng_f:, lo(2)-ng_f:, :)
-    real(kind=dp_t), intent(inout) :: cflux_y(lo(1)-ng_f:, lo(2)-ng_f:, :)
+    real(kind=dp_t), intent(inout) :: cforce_u(lo(1)-ng_f:, lo(2)-ng_f:, :)
+    real(kind=dp_t), intent(inout) :: cforce_v(lo(1)-ng_f:, lo(2)-ng_f:, :)
     real(kind=dp_t), intent(in   ) ::    ustar(lo(1)-ng_us:, lo(2)-ng_us:)
     real(kind=dp_t), intent(in   ) ::    vstar(lo(1)-ng_us:, lo(2)-ng_us:)
 
@@ -173,65 +157,61 @@ contains
     integer         :: i,j
     real(kind=dp_t) :: dxi, dyi
 
-    ! initialize the flux to 0
-    cflux_x = ZERO
-    cflux_y = ZERO
+    ! initialize the force to 0
+    cforce_u = ZERO
+    cforce_v = ZERO
 
     dxi = 1.0d0/dx(n, 1)
     dyi = 1.0d0/dx(n, 2)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! Compute the Convective fluxes for the U-Momentum equation
+    ! Compute the Convective forces for the U-Momentum equation
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     do j = lo(2),hi(2)
        do i = lo(1), hi(1)+1
-          
-          cflux_x(i-1, j, 1) = 0.25*( (ustar(i-1,j)+ustar(i,j)) * &
-                                      (ustar(i-1,j)+ustar(i,j)) )
 
-          cflux_x(i, j, 1)   = 0.25*( (ustar(i,j)+ustar(i+1,j)) * &
-                                      (ustar(i,j)+ustar(i+1,j)) )
-
-          cflux_y(i-1, j, 1) = 0.25*( (vstar(i-1,j)+vstar(i,j)) * &
-                                      (ustar(i,j)+ustar(i,j-1)) )
+          cforce_u(i, j, 1)   = 0.25*dxi*( &
+               ( (ustar(i,j)+ustar(i+1,j)) * (ustar(i,j)+ustar(i+1,j)) ) - &
+               ( (ustar(i,j)+ustar(i-1,j)) * (ustar(i,j)+ustar(i-1,j)) ) &
+               )
           
-          cflux_y(i, j, 1)   = 0.25*( (vstar(i,j+1)+vstar(i-1,j+1)) * &
-                                      (ustar(i,j)+ustar(i,j+1)) )
+          cforce_u(i, j, 2)   = 0.25*dyi*( &
+               ( (vstar(i,j+1)+vstar(i-1,j+1)) * (ustar(i,j)+ustar(i,j+1)) ) - &
+               ( (vstar(i,j)+vstar(i-1,j)) * (ustar(i,j)+ustar(i,j-1)) ) &
+               )
 
        end do
     end do
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! Compute the Convective fluxes for the V-Momentum equation
+    ! Compute the Convective forcees for the V-Momentum equation
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     do j = lo(2), hi(2)+1
        do i = lo(1), hi(1)
           
-          cflux_x(i, j-1, 2) = 0.25*( (ustar(i,j)+ustar(i,j-1)) * &
-                                      (vstar(i-1,j)+vstar(i,j)) )
+          cforce_v(i, j, 1) = 0.25*dxi*( &
+               ( (ustar(i+1,j)+ustar(i+1,j-1)) * (vstar(i,j)+vstar(i+1,j)) ) - &
+               ( (ustar(i,j)+ustar(i,j-1)) * (vstar(i,j)+vstar(i-1,j)) ) &
+               )
 
-          cflux_x(i, j, 2)   = 0.25*( (ustar(i+1,j)+ustar(i+1,j-1)) * &
-                                      (vstar(i,j)+vstar(i+1,j)) )
-
-          cflux_y(i, j-1, 2) = 0.25*( (vstar(i,j-1)+vstar(i,j)) * &
-                                      (vstar(i,j-1)+vstar(i,j)) )
-
-          cflux_y(i, j, 2  ) = 0.25*( (vstar(i,j)+vstar(i,j+1)) * &
-                                      (vstar(i,j)+vstar(i,j+1)) )   
+          cforce_v(i, j, 2) = 0.25*( &
+               ( (vstar(i,j)+vstar(i,j+1)) * (vstar(i,j)+vstar(i,j+1)) ) - &
+               ( (vstar(i,j)+vstar(i,j-1)) * (vstar(i,j)+vstar(i,j-1)) ) &
+               )
        end do
     end do
     
 
-  end subroutine convective_fluxes_2d
+  end subroutine convective_forces_2d
 
-  subroutine diffusive_fluxes_2d(dflux_x, dflux_y, ng_f, ustar, vstar, ng_us, &
+  subroutine diffusive_forces_2d(dforce_u, dforce_v, ng_f, ustar, vstar, ng_us, &
                                  lo, hi, dx, n)
     use bl_constants_module
 
     integer        , intent(in   ) ::  lo(:),hi(:),ng_f,ng_us, n
     real(kind=dp_t), intent(in   ) :: dx(:,:)
-    real(kind=dp_t), intent(inout) :: dflux_x(lo(1)-ng_f:, lo(2)-ng_f:, :)
-    real(kind=dp_t), intent(inout) :: dflux_y(lo(1)-ng_f:, lo(2)-ng_f:, :)
+    real(kind=dp_t), intent(inout) :: dforce_u(lo(1)-ng_f:, lo(2)-ng_f:, :)
+    real(kind=dp_t), intent(inout) :: dforce_v(lo(1)-ng_f:, lo(2)-ng_f:, :)
     real(kind=dp_t), intent(in   ) ::    ustar(lo(1)-ng_us:, lo(2)-ng_us:)
     real(kind=dp_t), intent(in   ) ::    vstar(lo(1)-ng_us:, lo(2)-ng_us:)
 
@@ -239,44 +219,44 @@ contains
     integer         :: i,j
     real(kind=dp_t) :: dxi, dyi
 
-    ! initialize the flux to 0
-    dflux_x = ZERO
-    dflux_y = ZERO
+    ! initialize the force to 0
+    dforce_u = ZERO
+    dforce_v = ZERO
 
     dxi = 1.0d0/dx(n, 1)
     dyi = 1.0d0/dx(n, 2)
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! Compute the Diffusive fluxes for the U-Momentum equation
+    ! Compute the Diffusive forcees for the U-Momentum equation
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     do j = lo(2),hi(2)
        do i = lo(1), hi(1)+1
-          
-          dflux_x(i-1, j, 1) = dxi*( ustar(i,j) - ustar(i-1,j) )
-          dflux_x(i,   j, 1) = dxi*( ustar(i+1,j) - ustar(i,j) )
 
-          dflux_y(i-1, j, 1)  = dyi*( ustar(i,j) - ustar(i,j-1) )
-          dflux_y(i,   j, 1)  = dyi*( ustar(i,j+1) - ustar(i,j) )
+          dforce_u(i, j, 1) = 0.5d0*dxi*dxi*( &
+               ustar(i+1,j) - 2.0d0*ustar(i,j) + ustar(i-1,j) )
+
+          dforce_u(i, j, 2) = 0.5d0*dyi*dyi*( &
+               ustar(i,j+1) - 2.0d0*ustar(i,j) + ustar(i,j-1) )
 
        end do
     end do
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! Compute the Diffusive fluxes for the V-Momentum equation
+    ! Compute the Diffusive forcees for the V-Momentum equation
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     do j = lo(2), hi(2)+1
        do i = lo(1), hi(1)
           
-          dflux_x(i, j-1, 2) = dxi*( vstar(i,j) - vstar(i-1,j) )
-          dflux_x(i, j  , 2) = dxi*( vstar(i+1,j) - vstar(i,j) )
+          dforce_v(i, j, 2) = 0.5*dxi*dxi*( &
+               vstar(i+1,j) - 2.0d0*vstar(i,j) + vstar(i-1, j) )
 
-          dflux_y(i, j-1, 2) = dyi*( vstar(i,j) - vstar(i,j-1) )
-          dflux_y(i, j  , 2) = dyi*( vstar(i,j+1) - vstar(i,j) )
+          dforce_v(i, j, 2) = 0.5*dyi*dyi*( &
+               vstar(i,j+1) - 2.0d0*vstar(i,j) + vstar(i,j-1) )
           
        end do
     end do
 
-  end subroutine diffusive_fluxes_2d
+  end subroutine diffusive_forces_2d
 
   subroutine mk_vel_force_1d(vel_force,ng_f,gpi,ng_gp, &
                              rho,ng_s, &
