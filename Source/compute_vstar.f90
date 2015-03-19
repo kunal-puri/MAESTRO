@@ -55,14 +55,6 @@ contains
     !*************************************************************
     !     Interpolate the cell-centered velocities to the edges
     !*************************************************************
-
-    do n=1,nlevs
-       do comp=1,dm
-          call multifab_build_edge(utrans(n,comp), mla%la(n),1,1,comp)
-          call setval(utrans(n, comp), ZERO, all=.true.)
-       end do
-    end do
-
     call interpolate_face_velocities(uold, ustar, dx, dt, the_bc_level, mla)
 
     !*************************************************************
@@ -78,23 +70,18 @@ contains
     call momentum_force(cforce, dforce, uold, ustar, sold, rho_comp, dx, the_bc_level, mla)
 
     !*************************************************************
-    !     Create the edge states to be used for the MAC velocity 
+    !     Predict the (non-divergence free) edge velocities
     !*************************************************************
-    !call velpred(uold,ustar,utrans,cflux,dx,dt,the_bc_level,mla)
-    !call velpred(uold,ufull,uface,utrans,force,w0,w0mac,dx,dt,the_bc_level,mla)
+    call velpred(uold,ustar,cforce,dforce,dx,dt,the_bc_level,mla)
 
     do n = 1,nlevs
        do comp = 1,dm
           call destroy(cforce(n,comp))
           call destroy(dforce(n,comp))
        end do
-       do comp=1,dm
-          call destroy(utrans(n,comp))
-       end do
     end do
 
     call destroy(bpt)
 
   end subroutine compute_vstar
-  
 end module vstar_module
