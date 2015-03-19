@@ -22,8 +22,6 @@ contains
 
     use bl_prof_module
     use bl_constants_module
-    use geometry, only: spherical
-    use fill_3d_module
     use ml_cc_restriction_module, only : ml_edge_restriction_c
 
     type(multifab) , intent(in   ) :: u(:)

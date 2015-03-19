@@ -27,12 +27,8 @@ contains
     ! multifab array, so index_rho may be different.
 
     use bl_prof_module
-    use geometry, only: spherical, nr_fine, dr
     use bl_constants_module
     use ml_restrict_fill_module
-    use probin_module, only: evolve_base_state
-    use fill_3d_module, only : put_1d_array_on_cart
-    use variables, only : foextrap_comp
 
     type(multifab) , intent(inout) :: cforce(:,:), dforce(:,:)
     type(multifab) , intent(in   ) :: uold(:)
