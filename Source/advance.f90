@@ -339,12 +339,6 @@ contains
     ! Compute the non-divergence free velocities
     call compute_vstar(uold,sold,ustar,dx,dt,the_bc_tower%bc_tower_array,mla)
 
-    if (dm .eq. 3) then
-       do n=1,nlevs
-          call destroy(w0_force_cart(n))
-       end do
-    end if
-
     do n=1,nlevs
        call multifab_build(delta_gamma1_term(n), mla%la(n), 1, 0)
        call multifab_build(macrhs(n),            mla%la(n), 1, 0)
@@ -376,8 +370,7 @@ contains
 
     ! Velocity Projection
     call cell_to_edge(div_coeff_old,div_coeff_edge)
-    call macproject(mla,ustar,macphi,sold,dx,the_bc_tower, &
-                    macrhs,div_coeff_1d=div_coeff_old,div_coeff_1d_edge=div_coeff_edge)
+    call macproject(mla,ustar,macphi,sold,dx,dt,the_bc_tower)
 
     do n=1,nlevs
        call destroy(macrhs(n))
