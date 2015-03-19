@@ -22,11 +22,7 @@ contains
 
     use bl_prof_module, only: bl_prof_timer, build, destroy
     use velpred_module, only: velpred
-    use addw0_module, only: addw0
-    use bl_constants_module, only: ZERO, ONE
     use variables, only: rho_comp
-    use fill_3d_module, only: put_1d_array_on_cart
-    use probin_module, only: ppm_trace_forces
 
     use compute_rhs_module                , only: momentum_force
     use interpolate_face_velocities_module, only: interpolate_face_velocities
