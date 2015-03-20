@@ -1,0 +1,75 @@
+&PROBIN
+ model_file = "model.hse.cool.coulomb"
+ spherical_in = 0
+
+ Re = 10000.0
+ deltap =  0.5
+ deltaw = 80.0
+ 
+ ppm_type = 2
+ max_levs = 1
+ n_cellx = 8
+ n_celly = 8
+ max_grid_size = 8
+
+ prob_hi_x = 1.0
+ prob_hi_y = 1.0
+
+ xlo_boundary_type = "periodic"
+ xhi_boundary_type = "periodic"
+
+ ylo_boundary_type = "periodic"
+ yhi_boundary_type = "periodic"
+
+ stop_time = 0.002
+ fixed_dt = 0.001
+ cflfac = 0.9
+ max_step  = 100000000
+
+    verbose = 1
+ mg_verbose = 1
+ cg_verbose = 0
+
+ plot_cs = F
+ plot_pidivu = F
+ plot_ad_excess = F
+ plot_Hext = F
+ plot_eta = F
+ plot_Hnuc = F
+ plot_omegadot = F
+ plot_base = F
+ plot_trac = F
+ plot_spec = F
+ plot_base   = F
+ plot_deltat = 0.5d0
+ plot_processors = T
+
+ plot_int = 10
+ chk_int     = 100
+
+ anelastic_cutoff = 2.0
+ base_cutoff_density = 2.0
+
+ small_dens = 0.0
+ small_temp = 0.0
+ 
+ use_particles = F
+ evolve_base_state = F
+ fix_base_state = F
+ do_smallscale = F
+ do_burning = F
+ octant = F
+
+ do_sponge = F
+ use_alt_energy_fix = F
+ grav_const = -1.5e10
+
+ init_shrink = 1.
+
+ do_initial_projection = F
+ init_divu_iter = 0
+ init_iter = 0
+
+ perturb_model = F
+
+/

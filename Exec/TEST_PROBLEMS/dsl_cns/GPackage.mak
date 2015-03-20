@@ -1,0 +1,14 @@
+f90sources += main.f90
+f90sources += define_bc_tower.f90
+f90sources += geometry.f90
+f90sources += initveldata.f90
+f90sources += multifab_physbc.f90
+f90sources += probin.f90
+f90sources += time.f90
+f90sources += varden.f90
+f90sources += variables.f90
+f90sources += make_plotfile.f90
+f90sources += make_plot_variables.f90
+f90sources += initialize.f90
+f90sources += cputime.f90
+f90sources += simple_log.f90
