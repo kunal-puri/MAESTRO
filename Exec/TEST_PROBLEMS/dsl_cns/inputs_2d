@@ -2,14 +2,18 @@
  model_file = "model.hse.cool.coulomb"
  spherical_in = 0
 
+ gamma = 1.4
  Re = 10000.0
+ Ma = 0.1
+ rho0 = 1.0
+ p0 = 71.42857142857143
  deltap =  0.5
  deltaw = 80.0
  
  ppm_type = 2
  max_levs = 1
- n_cellx = 8
- n_celly = 8
+ n_cellx = 16
+ n_celly = 16
  max_grid_size = 8
 
  prob_hi_x = 1.0

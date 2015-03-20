@@ -45,14 +45,16 @@ contains
     use probin_module, only: dm_in
 
     rho_comp    = 1
-    rhoh_comp   = 5
 
-    ! rho, rhou, rhov, rhow, rho E
-    n_comp = 5
-
-    ! press_comp here is used in the elliptic solves.  This slot is here
-    ! for the bc tower
-    press_comp  = 5
+    if (dm_in .eq. 3) then
+       n_comp      = 5
+       rhoh_comp   = 5
+       press_comp  = 5
+    else
+       n_comp     = 4
+       rhoh_comp  = 4
+       press_comp = 4
+    end if
 
     foextrap_comp = press_comp + 1
     hoextrap_comp = foextrap_comp + 1
@@ -66,8 +68,8 @@ contains
 
     use probin_module, only: dm_in, plot_processors
 
-    icomp_vel      = get_next_plot_index(dm_in)
     icomp_rho      = get_next_plot_index(1)
+    icomp_vel      = get_next_plot_index(dm_in)
     icomp_rhoh     = get_next_plot_index(1)
     icomp_magvel   = get_next_plot_index(1)
     icomp_mom      = get_next_plot_index(1)

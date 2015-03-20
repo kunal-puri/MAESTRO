@@ -80,8 +80,8 @@ contains
 
     do j = lo(2), hi(2)
        do i = lo(1), hi(1)
-          vx = (u(i+1,j,2) - u(i-1,j,2)) / (2.d0*dx(1)) 
-          uy = (u(i,j+1,1) - u(i,j-1,1)) / (2.d0*dx(2))
+          vx = (u(i+1,j,3) - u(i-1,j,3)) / (2.d0*dx(1)) 
+          uy = (u(i,j+1,2) - u(i,j-1,2)) / (2.d0*dx(2))
           vort(i,j) = vx - uy
        enddo
     enddo
@@ -89,8 +89,8 @@ contains
     if (bc(1,1) .eq. INLET .or. bc(1,1) .eq. SLIP_WALL .or. bc(1,1) .eq. NO_SLIP_WALL) then
        i = lo(1)
        do j = lo(2), hi(2)
-          vx = (u(i+1,j,2) + 3.d0*u(i,j,2) - 4.d0*u(i-1,j,2)) / dx(1)
-          uy = (u(i,j+1,1) - u(i,j-1,1)) / (2.d0*dx(2))
+          vx = (u(i+1,j,3) + 3.d0*u(i,j,3) - 4.d0*u(i-1,j,3)) / dx(1)
+          uy = (u(i,j+1,2) - u(i,j-1,2)) / (2.d0*dx(2))
           vort(i,j) = vx - uy
        end do
     end if
@@ -98,8 +98,8 @@ contains
     if (bc(1,2) .eq. INLET .or. bc(1,2) .eq. SLIP_WALL .or. bc(1,2) .eq. NO_SLIP_WALL) then
        i = hi(1)
        do j = lo(2), hi(2)
-          vx = -(u(i-1,j,2) + 3.d0*u(i,j,2) - 4.d0*u(i+1,j,2)) / dx(1)
-          uy = (u(i,j+1,1) - u(i,j-1,1)) / (2.d0*dx(2))
+          vx = -(u(i-1,j,3) + 3.d0*u(i,j,3) - 4.d0*u(i+1,j,3)) / dx(1)
+          uy = (u(i,j+1,2) - u(i,j-1,2)) / (2.d0*dx(2))
           vort(i,j) = vx - uy
        end do
     end if
@@ -107,8 +107,8 @@ contains
     if (bc(2,1) .eq. INLET .or. bc(2,1) .eq. SLIP_WALL .or. bc(2,1) .eq. NO_SLIP_WALL) then
        j = lo(2)
        do i = lo(1), hi(1)
-          vx = (u(i+1,j,2) - u(i-1,j,2)) / (2.d0*dx(1)) 
-          uy = (u(i,j+1,1) + 3.d0*u(i,j,1) - 4.d0*u(i,j-1,1)) / dx(2)
+          vx = (u(i+1,j,3) - u(i-1,j,3)) / (2.d0*dx(1)) 
+          uy = (u(i,j+1,2) + 3.d0*u(i,j,2) - 4.d0*u(i,j-1,2)) / dx(2)
           vort(i,j) = vx - uy
        end do
     end if
@@ -116,8 +116,8 @@ contains
     if (bc(2,2) .eq. INLET .or. bc(2,2) .eq. SLIP_WALL .or. bc(2,2) .eq. NO_SLIP_WALL) then
        j = hi(2)
        do i = lo(1), hi(1)
-          vx =  (u(i+1,j,2) - u(i-1,j,2)) / (2.d0*dx(1)) 
-          uy = -(u(i,j-1,1) + 3.d0*u(i,j,1) - 4.d0*u(i,j+1,1)) / dx(2)
+          vx =  (u(i+1,j,3) - u(i-1,j,3)) / (2.d0*dx(1)) 
+          uy = -(u(i,j-1,2) + 3.d0*u(i,j,2) - 4.d0*u(i,j+1,2)) / dx(2)
           vort(i,j) = vx - uy
        end do
     end if

@@ -49,20 +49,20 @@ contains
     call ml_restrict_and_fill(nlevs,u,mla%mba%rr,the_bc_level, &
                               icomp=1, &
                               bcomp=1, &
-                              nc=dm, &
-                              ng=u(1)%ng)
+                              nc=multifab_ncomp(u(1)), &
+                              ng=multifab_nghost(u(1)))
 
     ! restrict data and fill all ghost cells
     call ml_restrict_and_fill(nlevs,w,mla%mba%rr,the_bc_level, &
                               icomp=1, &
                               bcomp=1, &
-                              nc=dm, &
-                              ng=w(1)%ng)
+                              nc=multifab_ncomp(w(1)), &
+                              ng=multifab_nghost(w(1)))
 
   end subroutine initveldata
 
   subroutine initveldata_2d(u,w,lo,hi,ng,dx,prob_lo)
-    use probin_module, only: deltaw, deltap
+    use probin_module, only: deltaw, deltap, p0, rho0, gamma
 
     integer           , intent(in   ) :: lo(:),hi(:),ng
     real (kind = dp_t), intent(  out) :: u(lo(1)-ng:,lo(2)-ng:,:),w(lo(1)-ng:,lo(2)-ng:,:)
@@ -71,9 +71,10 @@ contains
 
     ! Local variables
     integer           :: i, j
-    real(kind=dp_t)   :: x, y
+    real(kind=dp_t)   :: x, y, gamma1i
 
-    write(*, *) 'DELTAP, DELTAW', deltap, deltaw
+    gamma1i = 1./(gamma - 1.0d0)
+    write(*, *) 'DELTAP, DELTAW', deltap, deltaw, gamma, rho0, p0
 
     ! initialize the velocity
     do j=lo(2), hi(2)
@@ -82,23 +83,27 @@ contains
           x = prob_lo(1) + (dble(i) + 0.5d0) * dx(1)
 
           ! density
-          u(i,j,1) = 1.0d0
+          u(i,j,1) = rho0
+          w(i,j,1) = rho0
           
-          ! Momentum/velocity
+          ! Velocity & Momentum
           if ( y .le. 0.5d0 ) then
-             u(i, j, 2) = tanh(deltaw * (y - 0.25d0))
+             w(i, j, 2) = tanh(deltaw * (y - 0.25d0))
           else
-             u(i, j, 3) = tanh(deltaw * (0.75d0 - y))
+             w(i, j, 2) = tanh(deltaw * (0.75d0 - y))
           end if
 
-          u(i, j, 3) = deltap * sin(2*M_PI*(x + 0.25d0))
+          w(i, j, 3) = deltap * sin(2*M_PI*(x + 0.25d0))
 
-          ! Energy
-          u(i,j,1) = 1.0d0
+          ! Momentum
+          u(i, j, 2) = rho0*w(i, j, 2)
+          u(i, j, 3) = rho0*w(i, j, 3)
 
-          ! Primitive variables
-          w(i,j,:) = u(i,j,:)
-          
+          ! Pressure and Energy
+          w(i,j,4) = p0
+          u(i,j,4) = rho0*(0.5*(u(i,j,2)**2 + u(i,j,3)**2) + &
+                           w(i,j,4)*gamma1i/rho0)
+
        end do
     end do
     

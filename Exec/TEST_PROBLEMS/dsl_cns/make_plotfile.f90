@@ -68,7 +68,7 @@ contains
     real(dp_t)       , intent(  out) :: write_pf_time
 
     type(multifab) :: plotdata(mla%nlevel)
-    type(multifab) ::  tempfab(mla%nlevel)
+    !type(multifab) ::  tempfab(mla%nlevel)
 
     real(dp_t) :: tempval
 
@@ -92,27 +92,29 @@ contains
     do n = 1,nlevs
 
        call multifab_build(plotdata(n), mla%la(n), n_plot_comps, 0)
-       call multifab_build(tempfab(n),  mla%la(n), dm,           1)
+       !call multifab_build(tempfab(n),  mla%la(n), dm,           1)
 
        ! DENSITY
+       write(*, *) 'DENSITY', icomp_rho, rho_comp
        call multifab_copy_c(plotdata(n),icomp_rho,u(n),rho_comp,1)
               
        ! VELOCITY 
+       write(*, *) 'VELOCITY', icomp_vel, 2
        call multifab_copy_c(plotdata(n),icomp_vel,u(n),2,dm)
 
        ! ENERGY
+       write(*, *) 'Energy', icomp_rhoh, rhoh_comp
        call multifab_copy_c(plotdata(n), icomp_rhoh,u(n),rhoh_comp,1)
 
     end do
 
     do n = 1,nlevs
-       n_1d = n
 
        ! MAGVEL = |U + w0| AND MOMENTUM
-       call make_magvel(plotdata(n),icomp_magvel,icomp_mom,u(n))
+       call make_magvel(plotdata(n),icomp_magvel,icomp_mom,w(n))
 
        ! VORTICITY
-       call make_vorticity(plotdata(n),icomp_vort,u(n),dx(n,:), &
+       call make_vorticity(plotdata(n),icomp_vort,w(n),dx(n,:), &
                           the_bc_tower%bc_tower_array(n))
 
        ! PRESSURE
@@ -124,16 +126,16 @@ contains
        end if
 
        ! DIVERGENCE
-       call make_divergence(plotdata(n), icomp_div, u(n), dx(n,:), &
+       call make_divergence(plotdata(n), icomp_div, w(n), dx(n,:), &
                             the_bc_tower%bc_tower_array(n))
     end do
 
     ! restrict data and fill all ghost cells
-    call ml_restrict_and_fill(nlevs,tempfab,mla%mba%rr,the_bc_tower%bc_tower_array, &
-                              icomp=1, &
-                              bcomp=foextrap_comp, &
-                              nc=1, &
-                              ng=tempfab(1)%ng)
+    ! call ml_restrict_and_fill(nlevs,tempfab,mla%mba%rr,the_bc_tower%bc_tower_array, &
+    !                           icomp=1, &
+    !                           bcomp=foextrap_comp, &
+    !                           nc=1, &
+    !                           ng=tempfab(1)%ng)
     
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -159,7 +161,7 @@ contains
 
     do n = 1,nlevs
        call destroy(plotdata(n))
-       call destroy(tempfab(n))
+       !call destroy(tempfab(n))
     end do
 
     call destroy(bpt)
